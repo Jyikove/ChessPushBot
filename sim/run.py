@@ -194,8 +194,11 @@ class Brain:
    if np.linalg.norm(p-self.target)>.023:return self.follow(p,h,self.target,'DELIVERY LINE')
    self.delivery.pop(0);self.target=self.delivery[0]
   err=wrap(math.pi-h)
-  if abs(err)>.035:return self.cmd('ENTRY ALIGN / TURN',0,np.clip(2.6*err,-1.4,1.4))
-  if abs(self.rate)>6:return self.cmd('ENTRY ALIGN / BRAKE',0,0)
+  # The motor model has a finite minimum PWM. A 2-degree deadband makes the
+  # vehicle hunt around pi instead of entering. Keep the entry nearly normal
+  # while allowing the measured yaw rate to settle inside a wider deadband.
+  if abs(err)>.05:return self.cmd('ENTRY ALIGN / TURN',0,np.clip(2.6*err,-1.4,1.4))
+  if abs(self.rate)>8:return self.cmd('ENTRY ALIGN / BRAKE',0,0)
   self.phase='IN';self.end.begin(t,p)
   if self.end.check(t,p,h):
    self.phase='HOLD';self.hold=t;return self.cmd('STOP / '+self.end.reason,0,0)
