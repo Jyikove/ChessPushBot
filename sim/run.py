@@ -24,28 +24,6 @@ Rplate=max([math.dist(q,(0,0,0)) for part in cad['convex_parts'] for q in part['
 def clearance(p):return math.hypot(max(0,p[0]-ZONE,-p[0]),max(0,.42-p[1],p[1]-1.57))-SWEEP
 # Wall-normal extent of the working blade, including its rounded tips.
 blade=np.array([q[:2] for a in cad['convex_parts'] if a['part']=='blade' for q in a['vertices']]);tips=cad['tip_caps']; STOPPING=.018; WALL_BUFFER=.022; LINE_MARGIN=.003
-# Nominal yaw pivot is the base-frame origin used by the wheel mixer.
-footprints=[cv2.convexHull(np.float32(a['vertices'])[:,:2].copy()).reshape(-1,2) for a in cad['convex_parts']]
-TURN_RADIUS=max([np.linalg.norm(q,axis=1).max() for q in footprints]+[math.hypot(*c['position'][:2])+c['radius'] for c in tips])
-home=np.array([[0.,.42],[ZONE,.42],[ZONE,1.57],[0.,1.57]])
-def distance_to_home(q):
- return math.hypot(max(0,-q[0],q[0]-ZONE),max(0,.42-q[1],q[1]-1.57))
-def sweeps_home(p,yaw,delta):
- if distance_to_home(p)>TURN_RADIUS:return False
- # Each intermediate angle is within half a sample of a tested footprint.
- n=max(1,math.ceil(abs(delta)/math.radians(2)))
- pad=2*TURN_RADIUS*math.sin(abs(delta)/(4*n))+1e-8
- for h in np.linspace(yaw,yaw+delta,n+1):
-  c,s=math.cos(h),math.sin(h);rot=np.array([[c,s],[-s,c]])
-  for tip in tips:
-   if distance_to_home(np.asarray(tip['position'][:2])@rot+p)<=tip['radius']+pad:return True
-  for poly in footprints:
-   q=poly@rot+p
-   if q[:,0].min()>ZONE+pad or q[:,0].max()< -pad or q[:,1].min()>1.57+pad or q[:,1].max()<.42-pad:continue
-   edges=np.roll(q,-1,axis=0)-q;axes=edges[:,[1,0]]*[-1,1]
-   proj=q@axes.T;rect=home@axes.T;eps=pad*np.linalg.norm(axes,axis=1)
-   if not np.any((proj.max(axis=0)+eps<rect.min(axis=0))|(rect.max(axis=0)+eps<proj.min(axis=0))):return True
- return False
 class PushEnd:
  def begin(self,t,p):self.start=t;self.window=[(t,p[0])];self.deadline=t+min(5.,(max(0,p[0]-.195)/.085)+1.);self.reason=None
  def check(self,t,p,h):
@@ -132,6 +110,8 @@ class Brain:
   d=grid-p;co,si=math.cos(h),math.sin(h);a,b=d.T;cc=c['camera'];q=(np.column_stack((co*a+si*b,-si*a+co*b,np.full(len(a),.015)))-cc['camera_base_position_m'])@np.array(cc['R_ground_optical']);z=q[:,2];x,y=(q[:,:2]/np.maximum(.01,z[:,None])).T;r=x*x+y*y;k,l=cc['opencv_distortion'][:2];v=1+k*r+l*r*r;return (z>0)&(abs(x*v*cc['focal_px'])<319.5)&(abs(y*v*cc['focal_px'])<239.5)&(np.linalg.norm(d,axis=1)<=1.5)
  def mapped(self,t):
   return [k for k,v in self.db.items() if v['hits']>=2 and not v['taken'] and t-v['t']<40]
+ def candidates(self,t):
+  return [k for k in self.mapped(t) if clearance(self.db[k]['p'])>.04]
  def act(self,o):
   v=o['pose'];p=np.array([v['x_m'],v['y_m']]);h=v['yaw_rad'];t=o['time_s'];self.pos=p;self.yaw=h;self.target=None
   self.speed=self.rate=0.
@@ -139,7 +119,7 @@ class Brain:
    q,a=self.prev;ds=np.linalg.norm(p-q);self.speed=ds/o["dt_s"];self.rate=math.degrees(wrap(h-a))/o["dt_s"];self.odo+=ds;self.prefix+=ds+.35/(math.pi/2)*abs(wrap(h-a))
   self.prev=p,h
   if abs(t-o['image_time_s'])<1e-6:self.perceive(o['rgb'],p,h,t)
-  ids=self.mapped(t);expired=self.odo>=self.tick
+  ids=self.candidates(t);expired=self.odo>=self.tick
   if expired:self.tick+=.5
   if self.phase=='HOLD':
    if t-self.hold<.5:return self.cmd('STOP / '+self.end.reason,0,0)
@@ -151,7 +131,7 @@ class Brain:
    if self.release is None:self.release=t
    if t-self.release<.4:return self.cmd('CLEAR GOAL / BRAKE',0,0)
    self.finish_review(t)
-   ids=self.mapped(t)
+   ids=self.candidates(t)
    self.phase=None;self.goal=None;self.load=0;self.prefix=0.;self.ref=-1;self.hold=None
   if self.phase=='RESTAGE':
    # Already outside the protected zone. Move to a different staging point, preserving cargo.
@@ -198,9 +178,9 @@ class Brain:
  def follow(self,p,h,dst,label):
   self.target=dst;d=dst-p;a=wrap(math.atan2(d[1],d[0])-h);return self.cmd(label+' / TURN',0,np.clip(3*a,-1.55,1.55)) if abs(a)>.12 else self.cmd(label+' / DRIVE',np.clip(2*np.linalg.norm(d),.075,.30),0)
  def cmd(self,state,v,w):
-  if w and sweeps_home(self.pos,self.yaw,w*.2):
-   # Preserve yaw; translate along the body axis toward increasing field X.
-   v=math.copysign(.16,math.cos(self.yaw));w=0;state='CLEAR BLADE / STRAIGHT'
+  # Final command gate applies to every caller, including scans and new plans.
+  if w and clearance(self.pos)<.035:
+   v=w=0;state='GOAL GUARD / STOP'
   self.state=state;u=WHEEL@np.array([v,0,.11*w]);return dict(motor_pwm=np.rint(np.where(abs(u)>1e-6,np.sign(u)*(18+237*abs(u)/.32),0)).clip(-255,255).astype(int).tolist())
 def text(im,s,xy,size=.55,color=(215,229,233)):
  cv2.putText(im,s,xy,cv2.FONT_HERSHEY_SIMPLEX,size,color,1,cv2.LINE_AA)
@@ -260,5 +240,5 @@ def main():
      audit.append(dict(t=o['time_s'],state=b.state,phase=b.phase,turn=is_turn,clear=clearance(b.pos),pwm=a['motor_pwm'],finish=b.end.reason,blade_back=getattr(b.end,'back',None),wall=getattr(b.end,'wall',None)))
    finally:enc.stdin.close();solver.stdin.close();env.close()
    if enc.wait():raise RuntimeError('video encoding failed')
- (reports/'运行记录.json').write_text(json.dumps(dict(seed=board['seed'],board=board,turn_radius_m=float(TURN_RADIUS),retreat_reviews=b.review_log,visual_recounts=b.recounts,scoring='center_inside_immediate',checks=checks,breakdown=breakdown,audit=audit,plate_radius=Rplate,safe_x=ZONE+SAFE+.025,result=ref.finish() if ref.done else None,frames=log),ensure_ascii=False));print('DONE',log[-1])
+ (reports/'运行记录.json').write_text(json.dumps(dict(seed=board['seed'],board=board,retreat_reviews=b.review_log,visual_recounts=b.recounts,scoring='center_inside_immediate',checks=checks,breakdown=breakdown,audit=audit,plate_radius=Rplate,safe_x=ZONE+SAFE+.025,result=ref.finish() if ref.done else None,frames=log),ensure_ascii=False));print('DONE',log[-1])
 if __name__=='__main__':main()
