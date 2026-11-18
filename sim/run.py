@@ -40,7 +40,7 @@ class Brain:
   self.counts=[0]*8;self.slot=None;self.s=solver;self.cam=Camera(c,sim/'resources/detector');self.db={};self.seq=[];self.goal=None;self.load=0;self.prefix=0.;self.ref=-1;self.odo=0.;self.next_plan=0.;self.map_events=[];self.prev=None;self.hold=None;self.cover=np.zeros(len(grid),bool);self.plans=0;self.boxes=[];self.scan=None;self.phase=None;self.dock_y=None;self.release=None;self.end=PushEnd();self.end.reason=None
  def perceive(self,rgb,p,h,t):
   mat,tf=prepare(rgb[:,:,::-1],(416,320));raw,_=self.cam.detector.forward(mat);self.boxes=postprocess(raw,tf);used=set();cc=c['camera'];rot=np.array([[math.cos(h),-math.sin(h)],[math.sin(h),math.cos(h)]]);lens=p+rot@cc['camera_base_position_m'][:2];pose=np.r_[p,h];self.cover|=self.visible(p,h)
-  measurements=[];review_used=set();slot_centers=[]
+  measurements=[];inside=set();review_used=set();slot_centers=[]
   for b in sorted(self.boxes,key=lambda b:-b['confidence']):
    x,y,u,v=b['box'];
    if min(x,y)<1 or u>638 or v>478:continue
@@ -50,9 +50,11 @@ class Brain:
    if q[0]<=ZONE and .42<=q[1]<=1.57:
     # Temporary count in a single image, never a goal-interior world-map track.
     if self.phase=='BACK' and q[0]>=0 and abs(q[1]-CENTERS[self.slot])<=(1.57-.42)/16 and all(np.linalg.norm(q-z)>.028 for z in slot_centers):slot_centers.append(q)
-    continue
-   if not(.023<q[0]<2.98 and .023<q[1]<1.977 and np.linalg.norm(q-p)<=1.5):continue
-   if self.phase=='BACK':self.observe_retreat(q,t,review_used)
+    if q[0]<0 or np.linalg.norm(q-p)>1.5:continue
+    inside.add(len(measurements))
+   else:
+    if not(.023<q[0]<2.98 and .023<q[1]<1.977 and np.linalg.norm(q-p)<=1.5):continue
+    if self.phase=='BACK':self.observe_retreat(q,t,review_used)
    measurements.append(q)
   # One image, at most one observation per track. Prefer the closest pair globally.
   edges=sorted((np.linalg.norm(q-v['p']),i,k) for i,q in enumerate(measurements) for k,v in self.db.items()
@@ -61,10 +63,19 @@ class Brain:
   for d,i,k in edges:
    if d>.085:break
    if k in used or i in matched:continue
-   q=measurements[i];v=self.db[k]
-   v.update(p=q.copy(),hits=v['hits']+1,t=t,miss=0);used.add(k);matched.add(i)
+   q=measurements[i];v=self.db[k];used.add(k);matched.add(i)
+   if i in inside:
+    # Two consecutive interior observations of the same spot retire an exterior track.
+    # Preserve the exterior estimate until confirmed, and never create an interior track.
+    previous=v.get('inside_observation')
+    if previous is not None and t-previous[0]<.21 and np.linalg.norm(q-previous[1])<.035:
+     v['cleared']=True;self.map_events.append(dict(t=t,track=k,xy=q.tolist(),reason='center observed in goal'))
+    v['inside_observation']=(t,q.copy());v['miss']=0
+    continue
+   v.pop('inside_observation',None)
+   v.update(p=q.copy(),hits=v['hits']+1,t=t,miss=0)
   for i,q in enumerate(measurements):
-   if i not in matched:
+   if i not in matched and i not in inside:
     k=len(self.db);self.db[k]=dict(p=q.copy(),hits=1,t=t,taken=False,miss=0);used.add(k)
   for k,v in self.db.items():
    if k in used or v['taken'] or v.get('cleared'):continue
