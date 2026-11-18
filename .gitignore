@@ -1,0 +1,12 @@
+# Local data and machine configuration
+/data/*
+!/data/.gitkeep
+.env
+.env.*
+!.env.example
+*.local.*
+.DS_Store
+._*
+__pycache__/
+*.py[cod]
+.venv/

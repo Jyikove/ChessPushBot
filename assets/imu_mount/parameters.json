@@ -1,0 +1,117 @@
+{
+  "unit": "mm",
+  "plate_outer_size": [
+    56,
+    65,
+    2.0
+  ],
+  "central_plate_size": [
+    22,
+    30.2,
+    2.0
+  ],
+  "central_frame_centerline_pitch": [
+    17,
+    25.2
+  ],
+  "central_pillar_root_pad_diameter": 6,
+  "central_opening_size": [
+    12,
+    20.2
+  ],
+  "frame_width_mm": 5,
+  "mount_pad_diameter_mm": 7,
+  "central_opening_corner_radius": 2,
+  "branch_width_mm": 5,
+  "branch_count": 4,
+  "outer_frame": false,
+  "printed_IMU_riser_height": 10.0,
+  "printed_IMU_riser_outer_diameter": 6,
+  "IMU_PCB_underside_z": 12.0,
+  "IMU_holes_xy": [
+    [
+      -8.5,
+      -12.6
+    ],
+    [
+      -8.5,
+      12.6
+    ],
+    [
+      8.5,
+      -12.6
+    ],
+    [
+      8.5,
+      12.6
+    ]
+  ],
+  "IMU_adapter_hole_diameter": 1.7,
+  "IMU_pilot_depth": 8,
+  "IMU_board_hole_diameter": 2.2,
+  "mount_holes_xy": [
+    [
+      -24.5,
+      -29
+    ],
+    [
+      -24.5,
+      29
+    ],
+    [
+      24.5,
+      -29
+    ],
+    [
+      24.5,
+      29
+    ]
+  ],
+  "mount_pitch_xy": [
+    49,
+    58
+  ],
+  "mount_hole_diameter": 2.9,
+  "mount_thread": "M2.5",
+  "copper_post_type": "female-female hex",
+  "copper_post_body_height": 14.0,
+  "mount_source_raw_shell_ids": [
+    70,
+    99,
+    125,
+    262
+  ],
+  "top_cover_raw_shell_id": 327,
+  "mount_local_center_global_STEP_mm": [
+    -50.34601384544354,
+    -44.71217038633075,
+    262.58847352374
+  ],
+  "mount_hole_pitch_status": "CAD column axes and top cover holes agree; mounting interpretation confirmed by user; not physically tested",
+  "adapter_bottom_height_above_top_cover": 14.0,
+  "orientation": "adapter +Y=car front, Type-C toward -Y rear",
+  "IMU_center_relative_plate_xy": [
+    0,
+    0
+  ],
+  "IMU_component_underside_clearance_to_plate_top": 10,
+  "recommended_top_mount_screws": "M2.5 x 6, 4 pcs; 4mm engagement",
+  "recommended_IMU_screws": "M2 x 8 pan head, direct fastening into plastic pilot; 4 pcs; trial fit required",
+  "bottom_fasteners": "retain original Raspberry Pi mounting and fan clamping; replacement lower screws depend on actual stack",
+  "omitted_preview_car_shell_ids": [
+    330
+  ],
+  "preview_omission_reason": "top cylindrical accessory not shown on standard-version assembly instructions; unknown accessory omitted",
+  "IMU_headers_removed": [
+    "left_header_housing_approx",
+    "left_pin_0",
+    "left_pin_1",
+    "left_pin_2",
+    "left_pin_3",
+    "right_header_housing_approx",
+    "right_pin_0",
+    "right_pin_1",
+    "right_pin_2",
+    "right_pin_3"
+  ]
+}

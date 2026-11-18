@@ -1,0 +1,147 @@
+{
+  "diameter_mm": 47,
+  "height_mm": 15,
+  "source": "chess.jpg product label; not physically measured",
+  "material_label": "桦木",
+  "edge_fillet_mm": 1,
+  "letter_engraving_depth_mm": 0.6,
+  "letter_ink_thickness_mm": 0.08,
+  "decorative_ring_engraving_mm": 0.3,
+  "font_style": "楷体近似商品字体",
+  "both_faces": true,
+  "types": [
+    {
+      "id": "红_帥",
+      "side": "红",
+      "character": "帥",
+      "count": 1,
+      "step": "step/红_帥.step",
+      "stl": "stl/红_帥.stl",
+      "glb": "glb/红_帥.glb"
+    },
+    {
+      "id": "红_仕",
+      "side": "红",
+      "character": "仕",
+      "count": 2,
+      "step": "step/红_仕.step",
+      "stl": "stl/红_仕.stl",
+      "glb": "glb/红_仕.glb"
+    },
+    {
+      "id": "红_相",
+      "side": "红",
+      "character": "相",
+      "count": 2,
+      "step": "step/红_相.step",
+      "stl": "stl/红_相.stl",
+      "glb": "glb/红_相.glb"
+    },
+    {
+      "id": "红_車",
+      "side": "红",
+      "character": "車",
+      "count": 2,
+      "step": "step/红_車.step",
+      "stl": "stl/红_車.stl",
+      "glb": "glb/红_車.glb"
+    },
+    {
+      "id": "红_馬",
+      "side": "红",
+      "character": "馬",
+      "count": 2,
+      "step": "step/红_馬.step",
+      "stl": "stl/红_馬.stl",
+      "glb": "glb/红_馬.glb"
+    },
+    {
+      "id": "红_炮",
+      "side": "红",
+      "character": "炮",
+      "count": 2,
+      "step": "step/红_炮.step",
+      "stl": "stl/红_炮.stl",
+      "glb": "glb/红_炮.glb"
+    },
+    {
+      "id": "红_兵",
+      "side": "红",
+      "character": "兵",
+      "count": 5,
+      "step": "step/红_兵.step",
+      "stl": "stl/红_兵.stl",
+      "glb": "glb/红_兵.glb"
+    },
+    {
+      "id": "黑_將",
+      "side": "黑",
+      "character": "將",
+      "count": 1,
+      "step": "step/黑_將.step",
+      "stl": "stl/黑_將.stl",
+      "glb": "glb/黑_將.glb"
+    },
+    {
+      "id": "黑_士",
+      "side": "黑",
+      "character": "士",
+      "count": 2,
+      "step": "step/黑_士.step",
+      "stl": "stl/黑_士.stl",
+      "glb": "glb/黑_士.glb"
+    },
+    {
+      "id": "黑_象",
+      "side": "黑",
+      "character": "象",
+      "count": 2,
+      "step": "step/黑_象.step",
+      "stl": "stl/黑_象.stl",
+      "glb": "glb/黑_象.glb"
+    },
+    {
+      "id": "黑_車",
+      "side": "黑",
+      "character": "車",
+      "count": 2,
+      "step": "step/黑_車.step",
+      "stl": "stl/黑_車.stl",
+      "glb": "glb/黑_車.glb"
+    },
+    {
+      "id": "黑_馬",
+      "side": "黑",
+      "character": "馬",
+      "count": 2,
+      "step": "step/黑_馬.step",
+      "stl": "stl/黑_馬.stl",
+      "glb": "glb/黑_馬.glb"
+    },
+    {
+      "id": "黑_炮",
+      "side": "黑",
+      "character": "炮",
+      "count": 2,
+      "step": "step/黑_炮.step",
+      "stl": "stl/黑_炮.stl",
+      "glb": "glb/黑_炮.glb"
+    },
+    {
+      "id": "黑_卒",
+      "side": "黑",
+      "character": "卒",
+      "count": 5,
+      "step": "step/黑_卒.step",
+      "stl": "stl/黑_卒.stl",
+      "glb": "glb/黑_卒.glb"
+    }
+  ],
+  "piece_count": 32,
+  "assumptions": [
+    "圆边1mm、刻字深0.6mm和装饰圈为建模近似，非商品实测",
+    "双面按同字刻印，底面从外侧观看不镜像",
+    "质量和摩擦未知；本模型不是赛事标准规格"
+  ],
+  "correction": "2026-11-14 按用户确认，黑方炮使用火字旁“炮”，红黑同字。"
+}
