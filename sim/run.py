@@ -35,6 +35,7 @@ class PushEnd:
   return self.reason
 class Brain:
  def __init__(self,solver):
+  self.cargo=set();self.review={};self.review_log=[];self.credited=False
   self.counts=[0]*8;self.slot=None;self.s=solver;self.cam=Camera(c,sim/'resources/detector');self.db={};self.seq=[];self.goal=None;self.load=0;self.prefix=0.;self.ref=-1;self.odo=0.;self.tick=.5;self.prev=None;self.hold=None;self.cover=np.zeros(len(grid),bool);self.plans=0;self.boxes=[];self.scan=None;self.phase=None;self.dock_y=None;self.release=None;self.end=PushEnd();self.end.reason=None
  def perceive(self,rgb,p,h,t):
   mat,tf=prepare(rgb[:,:,::-1],(416,320));raw,_=self.cam.detector.forward(mat);self.boxes=postprocess(raw,tf);used=set();cc=c['camera'];rot=np.array([[math.cos(h),-math.sin(h)],[math.sin(h),math.cos(h)]]);lens=p+rot@cc['camera_base_position_m'][:2];pose=np.r_[p,h];self.cover|=self.visible(p,h)
@@ -44,11 +45,45 @@ class Brain:
    q=self.cam.project([[(x+u)/2,y]],pose)[0]
    if q is None:continue
    q=q-.0235*(q-lens)/max(1e-9,np.linalg.norm(q-lens));
-   if not(0.11<q[0]<2.98 and .023<q[1]<1.977 and np.linalg.norm(q-p)<=1.5):continue
+   if q[0]<=ZONE and .42<=q[1]<=1.57:continue
+   if not(.023<q[0]<2.98 and .023<q[1]<1.977 and np.linalg.norm(q-p)<=1.5):continue
+   if self.phase=='BACK':
+    # Use only fresh retreat frames. Defer any cargo/accounting change until braking ends.
+    self.observe_retreat(q,t,used)
+    continue
    near=[(np.linalg.norm(q-v['p']),k) for k,v in self.db.items() if k not in used and (not v['taken'] or t-v['t']<2)]
    d,k=min(near,default=(99,-1));
    if d>.085:k=len(self.db);self.db[k]=dict(p=q,hits=0,t=t,taken=False)
    v=self.db[k];v.update(p=.65*v['p']+.35*q,hits=v['hits']+1,t=t);used.add(k)
+ def observe_retreat(self,q,t,used):
+  nearby=sorted((np.linalg.norm(q-v['p']),k) for k,v in self.review.items() if k not in used)
+  if nearby and nearby[0][0]<.035:
+   _,k=nearby[0];v=self.review[k]
+   if t-v['t']>.31:v['hits']=0
+   v.update(p=q.copy(),hits=v['hits']+1,t=t)
+  else:
+   k=len(self.review);self.review[k]=dict(p=q.copy(),hits=1,t=t)
+  used.add(k)
+ def finish_review(self,t):
+  observations=[v['p'] for v in self.review.values() if v['hits']>=2 and t-v['t']<.61]
+  # Match against the pre-review map. A crowded match cannot establish cargo identity.
+  snapshot={k:v['p'].copy() for k,v in self.db.items()}
+  for q in observations:
+   near=sorted((np.linalg.norm(q-p),k) for k,p in snapshot.items() if np.linalg.norm(q-p)<.065)
+   unique=(len(near)==1 and near[0][0]<.035 and sum(np.linalg.norm(z-snapshot[near[0][1]])<.065 for z in observations)==1)
+   debit=False
+   if unique:
+    k=near[0][1];v=self.db[k]
+    outside=math.hypot(max(0.,q[0]-ZONE),max(0.,.42-q[1],q[1]-1.57))
+    if k in self.cargo and self.credited and outside>.015 and self.hold-self.db[k]['t']<1.0:
+     self.counts[self.slot]-=1;debit=True
+   else:
+    # Reuse a nearby available track if possible; never debit an ambiguous observation.
+    free=[k for _,k in near if not self.db[k]['taken']]
+    k=free[0] if free else len(self.db)
+   self.db[k]=dict(p=q.copy(),hits=2,t=t,taken=False,pending=True)
+   self.review_log.append(dict(t=t,xy=q.tolist(),track=k,slot=self.slot,debit=debit))
+  self.review.clear();self.cargo.clear()
  def visible(self,p,h):
   d=grid-p;co,si=math.cos(h),math.sin(h);a,b=d.T;cc=c['camera'];q=(np.column_stack((co*a+si*b,-si*a+co*b,np.full(len(a),.015)))-cc['camera_base_position_m'])@np.array(cc['R_ground_optical']);z=q[:,2];x,y=(q[:,:2]/np.maximum(.01,z[:,None])).T;r=x*x+y*y;k,l=cc['opencv_distortion'][:2];v=1+k*r+l*r*r;return (z>0)&(abs(x*v*cc['focal_px'])<319.5)&(abs(y*v*cc['focal_px'])<239.5)&(np.linalg.norm(d,axis=1)<=1.5)
  def candidates(self,t):return [k for k,v in self.db.items() if v['hits']>=2 and not v['taken'] and t-v['t']<40 and clearance(v['p'])>.04]
@@ -63,12 +98,15 @@ class Brain:
   if expired:self.tick+=.5
   if self.phase=='HOLD':
    if t-self.hold<.5:return self.cmd('STOP / '+self.end.reason,0,0)
-   if self.end.back<=ZONE-LINE_MARGIN:self.counts[self.slot]+=self.load
+   self.credited=self.end.back<=ZONE-LINE_MARGIN
+   if self.credited:self.counts[self.slot]+=self.load
    self.phase='BACK';self.release=None
   if self.phase=='BACK':
    if p[0]<ZONE+SAFE+.025:self.release=None;return self.cmd('CLEAR GOAL / REVERSE',-.18,0)
    if self.release is None:self.release=t
    if t-self.release<.4:return self.cmd('CLEAR GOAL / BRAKE',0,0)
+   self.finish_review(t)
+   ids=self.candidates(t)
    self.phase=None;self.goal=None;self.load=0;self.prefix=0.;self.ref=-1;self.hold=None
   if self.phase=='RESTAGE':
    # Already outside the protected zone. Move to a different staging point, preserving cargo.
@@ -90,7 +128,7 @@ class Brain:
   if self.seq:
    k=self.seq[0];dst=self.db[k]['p'];
    if np.linalg.norm(p-dst)<.095:
-    self.seq.pop(0);self.db[k]['taken']=True;self.load+=1;return self.cmd('PICKUP / ESTIMATE',0,0)
+    self.seq.pop(0);self.db[k]['taken']=True;self.cargo.add(k);self.load+=1;return self.cmd('PICKUP / ESTIMATE',0,0)
    return self.follow(p,h,dst,'COLLECT')
   # Score line belongs to the pieces. Keep the vehicle base reachable inside the wall.
   if self.phase is None:self.phase='STAGE';self.dock_y=np.clip(self.goal[1],.48,1.51)
@@ -139,6 +177,8 @@ def compose(o,top,b,ref,a):
  if b.goal is not None:path.append(b.goal)
  if len(path)>1:cv2.polylines(im,[np.array(list(map(xy,path)))],False,(82,187,250),2)
  ids=b.candidates(t)
+ for v in b.db.values():
+  if v.get('pending') and not v['taken']:cv2.circle(im,xy(v['p']),6,(55,180,255),1)
  for k in ids:cv2.circle(im,xy(b.db[k]['p']),4,(130,228,160),-1)
  cv2.arrowedLine(im,xy(p),xy(p+.17*np.array([math.cos(h),math.sin(h)])),(241,194,92),3,tipLength=.35);text(im,'Green: tracks   |   Amber: plan   |   Light gray: observed area',(18,883),.47)
  rows=[('SIM CLOCK',f'{t:05.1f} / 120.0 s'),('STATE',b.state),('BASE XY',f'{p[0]:.3f}, {p[1]:.3f} m'),('YAW',f'{math.degrees(h):+.1f} deg'),('TARGET XY','--' if b.target is None else f'{b.target[0]:.2f}, {b.target[1]:.2f} m'),('CAM / MAP',f'{len(b.boxes)} boxes  /  {len(ids)} tracks'),('TRIP',f'{b.load} estimated on plate  /  {len(b.seq)} queued'),('PLANNER',f'{b.plans} solves  /  {b.odo:.2f} m traveled'),('WHEEL PWM','   '.join(map(str,a['motor_pwm']))),('REFEREE ONLY',f'{len(ref.active)} / 32 in home goal')]
@@ -177,5 +217,5 @@ def main():
      audit.append(dict(t=o['time_s'],state=b.state,phase=b.phase,turn=is_turn,clear=clearance(b.pos),pwm=a['motor_pwm'],finish=b.end.reason,blade_back=getattr(b.end,'back',None),wall=getattr(b.end,'wall',None)))
    finally:enc.stdin.close();solver.stdin.close();env.close()
    if enc.wait():raise RuntimeError('video encoding failed')
- (out/'运行记录.json').write_text(json.dumps(dict(seed=board['seed'],board=board,scoring='center_inside_immediate',checks=checks,breakdown=breakdown,audit=audit,plate_radius=Rplate,safe_x=ZONE+SAFE+.025,result=ref.finish() if ref.done else None,frames=log),ensure_ascii=False));print('DONE',log[-1])
+ (out/'运行记录.json').write_text(json.dumps(dict(seed=board['seed'],board=board,retreat_reviews=b.review_log,scoring='center_inside_immediate',checks=checks,breakdown=breakdown,audit=audit,plate_radius=Rplate,safe_x=ZONE+SAFE+.025,result=ref.finish() if ref.done else None,frames=log),ensure_ascii=False));print('DONE',log[-1])
 if __name__=='__main__':main()
