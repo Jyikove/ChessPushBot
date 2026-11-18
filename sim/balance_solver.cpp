@@ -27,7 +27,10 @@ int main(int argc,char** argv){
         auto finish=[&](int i,double h){return ends[i]+(turns && ends[i]>1e-10?bend(h,heading(i,{gx,clamp(pt[i].y,lo,hi)})):0);};
         for(int i=1;i<=n;i++){double h=legs[0][i]>1e-10?heading(0,pt[i]):yaw;single=min(single,legs[0][i]+(turns?bend(yaw,h):0)+finish(i,h));lastleg=min(lastleg,ends[i]);}
         if(reference>=0)single=reference;else if(carried)single=finish(0,yaw);
-        auto loss=[&](double length,int k){k+=carried;double extra=max(0.,prefix_before+length-single), budget=.24*min(k-1,target-1);return extra+max(0.,extra-budget)-A*min(k,target)-.16*max(0,k-target);};
+        vector<double> rewards(n+carried+1,0.);
+        for(int k=1;k<=n+carried;k++)
+            rewards[k]=rewards[k-1]+ldexp(A,-max(0,k-target));
+        auto loss=[&](double length,int k){k+=carried;double extra=max(0.,prefix_before+length-single), budget=.24*min(k-1,target-1);return extra+max(0.,extra-budget)-rewards[k];};
         double best=numeric_limits<double>::infinity(),bestlen=0;vector<int> path,answer;
         auto visit=[&](auto&& self,int i,unsigned long long used,double prefix,double h)->void{
             int k=path.size();double length=prefix+finish(i,h);
