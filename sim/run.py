@@ -141,7 +141,7 @@ class Brain:
  def mapped(self,t):
   return [k for k,v in self.db.items() if v['hits']>=2 and not v.get('cleared') and not v['taken'] and t-v['t']<40]
  def candidates(self,t):
-  return [k for k in self.mapped(t) if clearance(self.db[k]['p'])>.04]
+  return self.mapped(t)
  def act(self,o):
   v=o['pose'];p=np.array([v['x_m'],v['y_m']]);h=v['yaw_rad'];t=o['time_s'];self.pos=p;self.yaw=h;self.target=None
   self.speed=self.rate=0.
@@ -212,8 +212,8 @@ class Brain:
  def follow(self,p,h,dst,label):
   self.target=dst;d=dst-p;a=wrap(math.atan2(d[1],d[0])-h);return self.cmd(label+' / TURN',0,np.clip(3*a,-1.55,1.55)) if abs(a)>.12 else self.cmd(label+' / DRIVE',np.clip(2*np.linalg.norm(d),.075,.30),0)
  def cmd(self,state,v,w):
-  # Final command gate applies to every caller, including scans and new plans.
-  if w and clearance(self.pos)<.035:
+  # Once delivery ends, hold heading through retreat and braking.
+  if w and self.phase in ('HOLD','BACK'):
    v=w=0;state='GOAL GUARD / STOP'
   self.state=state;u=WHEEL@np.array([v,0,.11*w]);return dict(motor_pwm=np.rint(np.where(abs(u)>1e-6,np.sign(u)*(18+237*abs(u)/.32),0)).clip(-255,255).astype(int).tolist())
 def text(im,s,xy,size=.55,color=(215,229,233)):
