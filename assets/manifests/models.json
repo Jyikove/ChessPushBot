@@ -89,6 +89,11 @@
       "sha256": "4a514ed509db154ef1c9fd2fcd0c1bde7797f27933cfd59c54adc2d179d66cfe"
     },
     {
+      "path": "assets/chess/preview.png",
+      "bytes": 784170,
+      "sha256": "801d13a43c1b8b0c3a240cf5ee01dc1ca8b31f8e477ca95692b47527fdcdd52d"
+    },
+    {
       "path": "assets/chess/step/红_仕.step",
       "bytes": 980327,
       "sha256": "4f89cbe46215164f80ad80d8531c9b2aa40a006fdfc4eb50e254ad129bef4072"
@@ -249,6 +254,11 @@
       "sha256": "98c756073e86b869b5f9aa3a36f146f611216a94683569f57b8a0a15b0d631a3"
     },
     {
+      "path": "assets/field/preview.png",
+      "bytes": 24539,
+      "sha256": "ec1687788cfe58661fea4dc00c925776f52a5cf3e16499364fd5b885948fba9a"
+    },
+    {
       "path": "assets/imu_mount/build_imu_mount.py",
       "bytes": 4016,
       "sha256": "568c4477ad36a828419e82bc417772f37c45113aacc4f6d2cf19562f39850c34"
@@ -269,6 +279,11 @@
       "sha256": "4db076296f81a19e56f78a5f9473cf36a92536b0bd3a987182952f2c1c9b739a"
     },
     {
+      "path": "assets/imu_mount/preview.png",
+      "bytes": 204983,
+      "sha256": "639af7ee408ec801dda6c30d93376f7affaa1ec975cb26dab390af1d4c0197c1"
+    },
+    {
       "path": "assets/pusher/arcs.json",
       "bytes": 678,
       "sha256": "3d406481bdb925737117eda2a928b00eef9a63819c313edb998c6c230d8ffee9"
@@ -282,6 +297,11 @@
       "path": "assets/pusher/parameters.json",
       "bytes": 604,
       "sha256": "7df317f4aa9af0de693eea485a0cc1cb31feb5b534b1efa7c70476a752e026e0"
+    },
+    {
+      "path": "assets/pusher/preview.png",
+      "bytes": 70807,
+      "sha256": "4dfa8a9c9a82f05d51e28b336709d783b8981fd3776cfdef987f4601644483d5"
     },
     {
       "path": "assets/pusher/pusher.obj",
@@ -302,6 +322,11 @@
       "path": "assets/pusher/reinforcement.json",
       "bytes": 498,
       "sha256": "c4d3e96fa4be1a37501761d8ae51ce7245e8b6f20f5b4abcf2a3f2aa2d0974c9"
+    },
+    {
+      "path": "assets/robot/preview.png",
+      "bytes": 202739,
+      "sha256": "8ff3f0290459bff6c1b953ace126a889109b3acc1c532d7f08b564183e283354"
     },
     {
       "path": "assets/robot/raspbot.step",
