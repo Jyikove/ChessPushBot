@@ -37,7 +37,7 @@ class PushEnd:
 class Brain:
  def __init__(self,solver):
   self.slot_views=[];self.recounts=[];self.cargo=set();self.review={};self.review_log=[];self.credited=False
-  self.counts=[0]*8;self.slot=None;self.s=solver;self.cam=Camera(c,sim/'resources/detector');self.db={};self.seq=[];self.goal=None;self.load=0;self.prefix=0.;self.ref=-1;self.odo=0.;self.next_plan=0.;self.map_events=[];self.prev=None;self.hold=None;self.cover=np.zeros(len(grid),bool);self.plans=0;self.boxes=[];self.scan=None;self.phase=None;self.delivery=[];self.release=None;self.end=PushEnd();self.end.reason=None
+  self.counts=[0]*8;self.slot=None;self.s=solver;self.cam=Camera(c,sim/'resources/detector');self.db={};self.seq=[];self.goal=None;self.load=0;self.prefix=0.;self.ref=-1;self.odo=0.;self.next_plan=0.;self.map_events=[];self.prev=None;self.hold=None;self.cover=np.zeros(len(grid),bool);self.plans=0;self.boxes=[];self.scan=None;self.phase=None;self.delivery=[];self.release=None;self.target_track=None;self.target_best=math.inf;self.target_progress=0.;self.escape_start=None;self.escape_count=0;self.end=PushEnd();self.end.reason=None
  def perceive(self,rgb,p,h,t):
   mat,tf=prepare(rgb[:,:,::-1],(416,320));raw,_=self.cam.detector.forward(mat);self.boxes=postprocess(raw,tf);used=set();cc=c['camera'];rot=np.array([[math.cos(h),-math.sin(h)],[math.sin(h),math.cos(h)]]);lens=p+rot@cc['camera_base_position_m'][:2];pose=np.r_[p,h];self.cover|=self.visible(p,h)
   measurements=[];inside=set();review_used=set();slot_centers=[]
@@ -141,7 +141,7 @@ class Brain:
  def mapped(self,t):
   # A track has no time-to-live. It remains available until observations
   # prove the old position empty, or the controller explicitly takes it.
-  return [k for k,v in self.db.items() if v['hits']>=2 and not v.get('cleared') and not v['taken']]
+  return [k for k,v in self.db.items() if v['hits']>=2 and not v.get('cleared') and not v['taken'] and not v.get('blocked')]
  def candidates(self,t):
   return self.mapped(t)
  def act(self,o):
@@ -151,6 +151,11 @@ class Brain:
    q,a=self.prev;ds=np.linalg.norm(p-q);self.speed=ds/o["dt_s"];self.rate=math.degrees(wrap(h-a))/o["dt_s"];self.odo+=ds;self.prefix+=ds+.35/(math.pi/2)*abs(wrap(h-a))
   self.prev=p,h
   if abs(t-o['image_time_s'])<1e-6:self.perceive(o['rgb'],p,h,t)
+  if self.phase=='ESCAPE':
+   if t-self.escape_start<.8:return self.cmd('ESCAPE / REVERSE',-.18,0)
+   if t-self.escape_start<1.5:return self.cmd('ESCAPE / TURN',0,1.0)
+   self.phase=None;self.goal=None;self.seq=[];self.target_track=None;self.ref=-1;self.prefix=0.;self.next_plan=t
+   return self.cmd('ESCAPE / REPLAN',0,0)
   ids=self.candidates(t);expired=t+1e-8>=self.next_plan
   if self.phase=='HOLD':
    if t-self.hold<.5:return self.cmd('STOP / '+self.end.reason,0,0)
@@ -164,7 +169,7 @@ class Brain:
    if t-self.release<.4:return self.cmd('CLEAR GOAL / BRAKE',0,0)
    self.finish_review(t)
    ids=self.candidates(t)
-   self.delivery=[];self.phase=None;self.goal=None;self.load=0;self.prefix=0.;self.ref=-1;self.hold=None
+   self.delivery=[];self.phase=None;self.goal=None;self.load=0;self.prefix=0.;self.ref=-1;self.hold=None;self.target_track=None
   if self.phase=='IN':
    if self.end.check(t,p,h):self.phase='HOLD';self.hold=t;return self.cmd('STOP / '+self.end.reason,0,0)
    return self.cmd('PUSH TO GOAL / STRAIGHT',.08 if self.end.back<ZONE+.055 else .155,0)
@@ -184,7 +189,21 @@ class Brain:
    return self.cmd("MAP UPDATED / WAIT",0,0)
   if self.seq:
    k=self.seq[0];dst=self.db[k]['p'];
-   if np.linalg.norm(p-dst)<.095:
+   distance=np.linalg.norm(p-dst)
+   if self.target_track!=k:
+    self.target_track=k;self.target_best=distance;self.target_progress=t;self.escape_count=0
+   elif distance<self.target_best-.01:
+    self.target_best=distance;self.target_progress=t
+   elif self.speed<.02 and t-self.target_progress>1.5:
+    if self.escape_count<2:
+     self.escape_count+=1;self.escape_start=t;self.phase='ESCAPE'
+     self.map_events.append(dict(t=t,track=k,xy=dst.tolist(),reason='motion planner escape'))
+     return self.cmd('ESCAPE / START',0,0)
+    self.db[k]['blocked']=True
+    self.map_events.append(dict(t=t,track=k,xy=dst.tolist(),reason='motion planner no progress'))
+    self.seq=[];self.target_track=None;self.goal=None;self.ref=-1;self.prefix=0.;self.next_plan=t
+    return self.cmd('MAP UPDATED / TARGET UNREACHABLE',0,0)
+   if distance<.095:
     self.seq.pop(0);self.db[k]['taken']=True;self.cargo.add(k);self.load+=1
     if not self.seq:self.phase='DELIVER'
     return self.cmd('PICKUP / ESTIMATE',0,0)
