@@ -139,7 +139,9 @@ class Brain:
  def visible(self,p,h):
   d=grid-p;co,si=math.cos(h),math.sin(h);a,b=d.T;cc=c['camera'];q=(np.column_stack((co*a+si*b,-si*a+co*b,np.full(len(a),.015)))-cc['camera_base_position_m'])@np.array(cc['R_ground_optical']);z=q[:,2];x,y=(q[:,:2]/np.maximum(.01,z[:,None])).T;r=x*x+y*y;k,l=cc['opencv_distortion'][:2];v=1+k*r+l*r*r;return (z>0)&(abs(x*v*cc['focal_px'])<319.5)&(abs(y*v*cc['focal_px'])<239.5)&(np.linalg.norm(d,axis=1)<=1.5)
  def mapped(self,t):
-  return [k for k,v in self.db.items() if v['hits']>=2 and not v.get('cleared') and not v['taken'] and t-v['t']<40]
+  # A track has no time-to-live. It remains available until observations
+  # prove the old position empty, or the controller explicitly takes it.
+  return [k for k,v in self.db.items() if v['hits']>=2 and not v.get('cleared') and not v['taken']]
  def candidates(self,t):
   return self.mapped(t)
  def act(self,o):
