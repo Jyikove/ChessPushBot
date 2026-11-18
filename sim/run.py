@@ -36,17 +36,21 @@ class PushEnd:
   return self.reason
 class Brain:
  def __init__(self,solver):
-  self.cargo=set();self.review={};self.review_log=[];self.credited=False
+  self.slot_views=[];self.recounts=[];self.cargo=set();self.review={};self.review_log=[];self.credited=False
   self.counts=[0]*8;self.slot=None;self.s=solver;self.cam=Camera(c,sim/'resources/detector');self.db={};self.seq=[];self.goal=None;self.load=0;self.prefix=0.;self.ref=-1;self.odo=0.;self.tick=.5;self.prev=None;self.hold=None;self.cover=np.zeros(len(grid),bool);self.plans=0;self.boxes=[];self.scan=None;self.phase=None;self.dock_y=None;self.release=None;self.end=PushEnd();self.end.reason=None
  def perceive(self,rgb,p,h,t):
   mat,tf=prepare(rgb[:,:,::-1],(416,320));raw,_=self.cam.detector.forward(mat);self.boxes=postprocess(raw,tf);used=set();cc=c['camera'];rot=np.array([[math.cos(h),-math.sin(h)],[math.sin(h),math.cos(h)]]);lens=p+rot@cc['camera_base_position_m'][:2];pose=np.r_[p,h];self.cover|=self.visible(p,h)
+  slot_centers=[]
   for b in sorted(self.boxes,key=lambda b:-b['confidence']):
    x,y,u,v=b['box'];
    if min(x,y)<1 or u>638 or v>478:continue
    q=self.cam.project([[(x+u)/2,y]],pose)[0]
    if q is None:continue
    q=q-.0235*(q-lens)/max(1e-9,np.linalg.norm(q-lens));
-   if q[0]<=ZONE and .42<=q[1]<=1.57:continue
+   if q[0]<=ZONE and .42<=q[1]<=1.57:
+    # Temporary count in a single image, never a goal-interior world-map track.
+    if self.phase=='BACK' and q[0]>=0 and abs(q[1]-CENTERS[self.slot])<=(1.57-.42)/16 and all(np.linalg.norm(q-z)>.028 for z in slot_centers):slot_centers.append(q)
+    continue
    if not(.023<q[0]<2.98 and .023<q[1]<1.977 and np.linalg.norm(q-p)<=1.5):continue
    if self.phase=='BACK':
     # Use only fresh retreat frames. Defer any cargo/accounting change until braking ends.
@@ -56,6 +60,15 @@ class Brain:
    d,k=min(near,default=(99,-1));
    if d>.085:k=len(self.db);self.db[k]=dict(p=q,hits=0,t=t,taken=False)
    v=self.db[k];v.update(p=.65*v['p']+.35*q,hits=v['hits']+1,t=t);used.add(k)
+  if self.phase=='BACK' and p[0]>=ZONE+SAFE+.025:
+   # Only recount a fully framed slot: project its four corners into the actual image.
+   half=(1.57-.42)/16;yy=CENTERS[self.slot]
+   corners=np.array([[x,y,.015] for x in (0,ZONE) for y in (yy-half,yy+half)])
+   corners[:,:2]=(corners[:,:2]-p)@rot
+   xyz=(corners-cc['camera_base_position_m'])@np.array(cc['R_ground_optical'])
+   uv,_=cv2.projectPoints(xyz,np.zeros(3),np.zeros(3),np.asarray(cc['K']),np.asarray(cc['opencv_distortion']))
+   uv=uv.reshape(-1,2)
+   if np.all(xyz[:,2]>0) and np.all((uv>[12,12])&(uv<[627,467])):self.slot_views.append((t,len(slot_centers)))
  def observe_retreat(self,q,t,used):
   nearby=sorted((np.linalg.norm(q-v['p']),k) for k,v in self.review.items() if k not in used)
   if nearby and nearby[0][0]<.035:
@@ -69,6 +82,7 @@ class Brain:
   observations=[v['p'] for v in self.review.values() if v['hits']>=2 and t-v['t']<.61]
   # Match against the pre-review map. A crowded match cannot establish cargo identity.
   snapshot={k:v['p'].copy() for k,v in self.db.items()}
+  assigned=set()
   for q in observations:
    near=sorted((np.linalg.norm(q-p),k) for k,p in snapshot.items() if np.linalg.norm(q-p)<.065)
    unique=(len(near)==1 and near[0][0]<.035 and sum(np.linalg.norm(z-snapshot[near[0][1]])<.065 for z in observations)==1)
@@ -80,11 +94,18 @@ class Brain:
      self.counts[self.slot]-=1;debit=True
    else:
     # Reuse a nearby available track if possible; never debit an ambiguous observation.
-    free=[k for _,k in near if not self.db[k]['taken']]
+    free=[k for _,k in near if k not in assigned and not self.db[k]['taken']]
     k=free[0] if free else len(self.db)
+   assigned.add(k)
    self.db[k]=dict(p=q.copy(),hits=2,t=t,taken=False,pending=True)
    self.review_log.append(dict(t=t,xy=q.tolist(),track=k,slot=self.slot,debit=debit))
-  self.review.clear();self.cargo.clear()
+  counts=[n for ts,n in self.slot_views]
+  supported=[min(counts[i:i+3]) for i in range(len(counts)-2)]
+  if self.credited and supported and max(supported)>0:
+   # Visual estimate, not proof of absence; full framing does not rule out occlusion.
+   before=self.counts[self.slot];self.counts[self.slot]=max(supported)
+   self.recounts.append(dict(t=t,slot=self.slot+1,before=before,observed=max(supported),views=counts))
+  self.slot_views.clear();self.review.clear();self.cargo.clear()
  def visible(self,p,h):
   d=grid-p;co,si=math.cos(h),math.sin(h);a,b=d.T;cc=c['camera'];q=(np.column_stack((co*a+si*b,-si*a+co*b,np.full(len(a),.015)))-cc['camera_base_position_m'])@np.array(cc['R_ground_optical']);z=q[:,2];x,y=(q[:,:2]/np.maximum(.01,z[:,None])).T;r=x*x+y*y;k,l=cc['opencv_distortion'][:2];v=1+k*r+l*r*r;return (z>0)&(abs(x*v*cc['focal_px'])<319.5)&(abs(y*v*cc['focal_px'])<239.5)&(np.linalg.norm(d,axis=1)<=1.5)
  def candidates(self,t):return [k for k,v in self.db.items() if v['hits']>=2 and not v['taken'] and t-v['t']<40 and clearance(v['p'])>.04]
@@ -103,7 +124,7 @@ class Brain:
    if self.credited:self.counts[self.slot]+=self.load
    self.phase='BACK';self.release=None
   if self.phase=='BACK':
-   if p[0]<ZONE+SAFE+.025:self.release=None;return self.cmd('CLEAR GOAL / REVERSE',-.18,0)
+   if p[0]<ZONE+SAFE+.225:self.release=None;return self.cmd('CLEAR GOAL / REVERSE',-.18,0)
    if self.release is None:self.release=t
    if t-self.release<.4:return self.cmd('CLEAR GOAL / BRAKE',0,0)
    self.finish_review(t)
@@ -180,8 +201,10 @@ def compose(o,top,b,ref,a):
  ids=b.candidates(t)
  for v in b.db.values():
   if v.get('pending') and not v['taken']:cv2.circle(im,xy(v['p']),6,(55,180,255),1)
+ for v in b.db.values():
+  if not v["taken"] and v["hits"]>=2 and t-v["t"]<40 and clearance(v["p"])<=.04:cv2.circle(im,xy(v["p"]),4,(55,180,255),1)
  for k in ids:cv2.circle(im,xy(b.db[k]['p']),4,(130,228,160),-1)
- cv2.arrowedLine(im,xy(p),xy(p+.17*np.array([math.cos(h),math.sin(h)])),(241,194,92),3,tipLength=.35);text(im,'Green: tracks   |   Amber: plan   |   Light gray: observed area',(18,883),.47)
+ cv2.arrowedLine(im,xy(p),xy(p+.17*np.array([math.cos(h),math.sin(h)])),(241,194,92),3,tipLength=.35);text(im,'Green: selectable   |   Rings: mapped near goal   |   Amber line: plan',(18,883),.47)
  rows=[('SIM CLOCK',f'{t:05.1f} / 120.0 s'),('STATE',b.state),('BASE XY',f'{p[0]:.3f}, {p[1]:.3f} m'),('YAW',f'{math.degrees(h):+.1f} deg'),('TARGET XY','--' if b.target is None else f'{b.target[0]:.2f}, {b.target[1]:.2f} m'),('CAM / MAP',f'{len(b.boxes)} boxes  /  {len(ids)} tracks'),('TRIP',f'{b.load} estimated on plate  /  {len(b.seq)} queued'),('PLANNER',f'{b.plans} solves  /  {b.odo:.2f} m traveled'),('WHEEL PWM','   '.join(map(str,a['motor_pwm']))),('REFEREE ONLY',f'{len(ref.active)} / 32 in home goal')]
  rows.extend([('SPEED / YAW RATE',f'{b.speed:.3f} m/s   {b.rate:+.1f} deg/s'),('GOAL SLOT','--' if b.goal is None else f'{b.slot+1} / 8  (estimated: {b.counts[b.slot]})')])
  for i,(k,v) in enumerate(rows):yy=508+i*32;text(im,k,(658,yy),.48,(154,174,180));text(im,v,(847,yy),.62,(142,224,177) if i in (1,9) else (237,237,231))
@@ -209,7 +232,7 @@ def main():
     for k in range(prefix*10+1):
      mujoco.mj_kinematics(env.m,env.d);mujoco.mj_camlight(env.m,env.d);o=env.obs();a=b.act(o)
      if k%2==0 or ref.done:
-      im=compose(o,env.render(True),b,ref,a);enc.stdin.write(im.tobytes());log.append(dict(t=env.time,pose=o['pose'],state=b.state,pwm=a['motor_pwm'],detections=len(b.boxes),tracks=len(b.candidates(env.time)),route=b.seq.copy(),estimated_load=b.load,goal_slot=b.slot,slot_counts=b.counts.copy(),score=len(ref.active),odo=b.odo,plans=b.plans));
+      im=compose(o,env.render(True),b,ref,a);enc.stdin.write(im.tobytes());log.append(dict(t=env.time,pose=o['pose'],state=b.state,pwm=a['motor_pwm'],detections=len(b.boxes),tracks=len(b.candidates(env.time)),route=b.seq.copy(),pending_map={k:v['p'].tolist() for k,v in b.db.items() if v.get('pending') and not v['taken']},estimated_load=b.load,goal_slot=b.slot,slot_counts=b.counts.copy(),score=len(ref.active),odo=b.odo,plans=b.plans));
       if k==20:cv2.imwrite(str(out/'画面预览.jpg'),im)
      if k%150==0:print('sim',env.time,b.state,len(ref.active),flush=True)
      if ref.done or k==prefix*10:break
@@ -218,5 +241,5 @@ def main():
      audit.append(dict(t=o['time_s'],state=b.state,phase=b.phase,turn=is_turn,clear=clearance(b.pos),pwm=a['motor_pwm'],finish=b.end.reason,blade_back=getattr(b.end,'back',None),wall=getattr(b.end,'wall',None)))
    finally:enc.stdin.close();solver.stdin.close();env.close()
    if enc.wait():raise RuntimeError('video encoding failed')
- (reports/'运行记录.json').write_text(json.dumps(dict(seed=board['seed'],board=board,retreat_reviews=b.review_log,scoring='center_inside_immediate',checks=checks,breakdown=breakdown,audit=audit,plate_radius=Rplate,safe_x=ZONE+SAFE+.025,result=ref.finish() if ref.done else None,frames=log),ensure_ascii=False));print('DONE',log[-1])
+ (reports/'运行记录.json').write_text(json.dumps(dict(seed=board['seed'],board=board,retreat_reviews=b.review_log,visual_recounts=b.recounts,scoring='center_inside_immediate',checks=checks,breakdown=breakdown,audit=audit,plate_radius=Rplate,safe_x=ZONE+SAFE+.025,result=ref.finish() if ref.done else None,frames=log),ensure_ascii=False));print('DONE',log[-1])
 if __name__=='__main__':main()
