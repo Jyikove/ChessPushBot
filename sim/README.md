@@ -14,7 +14,7 @@ python sim/point.py                   # 十盘：连续得分线 vs 八分区，
 BOARD_SEED=77 python sim/run.py        # 完整三维仿真；TEST_SECONDS=5 可做启动检查
 ```
 
-点模型输出到 `data/point-comparison/`，含 HTML 同步回放。三维视频在 `data/sim-seed-77/四视图.mp4`，同目录 JSON 用于核查；再次运行同一种子会覆盖该目录中的同名产物。四分屏依次是车载 RGB 与 YOLO 框、物理俯瞰、视觉世界模型、状态与实测速度。
+所有运行产物都写在仓库外。以下路径相对于仓库的上一级目录：点模型输出到 `决策层点模型实验/point-comparison/`；三维视频在 `三维仿真/视频/sim-seed-77/四视图.mp4`，核查记录在 `三维仿真/报告/sim-seed-77/`；再次运行同一种子会覆盖该目录中的同名产物。四分屏依次是车载 RGB 与 YOLO 框、物理俯瞰、视觉世界模型、状态与实测速度。
 
 ## 从观察到计分
 

@@ -86,7 +86,7 @@ def run(proc,sample,mode,turn_cost=False,slots=False):
 
 
 if __name__=='__main__':
-    out=base.parent/'data/point-comparison';out.mkdir(parents=True,exist_ok=True)
+    out=base.parent.parent/'决策层点模型实验/point-comparison';out.mkdir(parents=True,exist_ok=True)
     rows=[]
     with tempfile.TemporaryDirectory() as tmp:
         exe=Path(tmp)/'solver'

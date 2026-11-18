@@ -15,7 +15,8 @@ def make_board(seed):
   if all(math.dist(q,other)>.12 for other in points):points.append(q)
  return dict(seed=seed,start=start,points=points[1:])
 board=make_board(int(os.environ.get('BOARD_SEED','77')))
-out=sim.parent/'data'/f"sim-seed-{board['seed']}";out.mkdir(exist_ok=True);c=dict(camera=json.loads((sim/'resources/camera/camera_profile.json').read_text()),goals=[[[0,.42],[.11,.42],[.11,1.57],[0,1.57]]]);c['goals']=c['goals'][:1];grid=np.array([(x/10+.05,y/10+.05) for x in range(30) for y in range(20)])
+reports=sim.parent.parent/'三维仿真/报告'/f"sim-seed-{board['seed']}"
+out=sim.parent.parent/'三维仿真/视频'/f"sim-seed-{board['seed']}";c=dict(camera=json.loads((sim/'resources/camera/camera_profile.json').read_text()),goals=[[[0,.42],[.11,.42],[.11,1.57],[0,1.57]]]);c['goals']=c['goals'][:1];grid=np.array([(x/10+.05,y/10+.05) for x in range(30) for y in range(20)])
 # Enclose tilted chess cylinders and every pusher collision primitive by spheres.
 cad=json.loads((sim.parent/'assets/robot/simulation.json').read_text())
 Rplate=max([math.dist(q,(0,0,0)) for part in cad['convex_parts'] for q in part['vertices']]+[math.hypot(*cap['position'][:2])+cap['radius']+abs(cap['position'][2])+cap['half_height'] for cap in cad['tip_caps']]);Rpiece=math.hypot(.0235,.0075);ZONE=.11;SWEEP=Rplate+2*Rpiece; SAFE=SWEEP+.035;GATE=ZONE+SAFE+.075
@@ -187,7 +188,7 @@ def compose(o,top,b,ref,a):
  return im
 
 def main():
- out.mkdir(exist_ok=True);vid=out/'四视图.mp4';log=[];audit=[];prefix=int(os.environ.get('TEST_SECONDS','120'));positions=np.array([[*p,.0076] for p in board['points']]);env=Physics(c,positions,car=(*board['start'],.001));ref=Referee(c['goals'],32,center_only=True)
+ out.mkdir(parents=True,exist_ok=True);reports.mkdir(parents=True,exist_ok=True);vid=out/'四视图.mp4';log=[];audit=[];prefix=int(os.environ.get('TEST_SECONDS','120'));positions=np.array([[*p,.0076] for p in board['points']]);env=Physics(c,positions,car=(*board['start'],.001));ref=Referee(c['goals'],32,center_only=True)
  # Overview framing only: fill the pane with the complete 3 x 2 m field.
  camid=mujoco.mj_name2id(env.m,mujoco.mjtObj.mjOBJ_CAMERA,'overview');env.m.cam_fovy[camid]=44.
  # Evaluate at all 240 Hz physics steps, including motor delay / rotation after braking.
@@ -217,5 +218,5 @@ def main():
      audit.append(dict(t=o['time_s'],state=b.state,phase=b.phase,turn=is_turn,clear=clearance(b.pos),pwm=a['motor_pwm'],finish=b.end.reason,blade_back=getattr(b.end,'back',None),wall=getattr(b.end,'wall',None)))
    finally:enc.stdin.close();solver.stdin.close();env.close()
    if enc.wait():raise RuntimeError('video encoding failed')
- (out/'运行记录.json').write_text(json.dumps(dict(seed=board['seed'],board=board,retreat_reviews=b.review_log,scoring='center_inside_immediate',checks=checks,breakdown=breakdown,audit=audit,plate_radius=Rplate,safe_x=ZONE+SAFE+.025,result=ref.finish() if ref.done else None,frames=log),ensure_ascii=False));print('DONE',log[-1])
+ (reports/'运行记录.json').write_text(json.dumps(dict(seed=board['seed'],board=board,retreat_reviews=b.review_log,scoring='center_inside_immediate',checks=checks,breakdown=breakdown,audit=audit,plate_radius=Rplate,safe_x=ZONE+SAFE+.025,result=ref.finish() if ref.done else None,frames=log),ensure_ascii=False));print('DONE',log[-1])
 if __name__=='__main__':main()
