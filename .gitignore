@@ -10,3 +10,10 @@
 __pycache__/
 *.py[cod]
 .venv/
+
+# Videos are local deliverables only
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.webm
