@@ -97,7 +97,7 @@ class Brain:
     free=[k for _,k in near if k not in assigned and not self.db[k]['taken']]
     k=free[0] if free else len(self.db)
    assigned.add(k)
-   self.db[k]=dict(p=q.copy(),hits=2,t=t,taken=False,pending=True)
+   self.db[k]=dict(p=q.copy(),hits=2,t=t,taken=False)
    self.review_log.append(dict(t=t,xy=q.tolist(),track=k,slot=self.slot,debit=debit))
   counts=[n for ts,n in self.slot_views]
   supported=[min(counts[i:i+3]) for i in range(len(counts)-2)]
@@ -108,7 +108,10 @@ class Brain:
   self.slot_views.clear();self.review.clear();self.cargo.clear()
  def visible(self,p,h):
   d=grid-p;co,si=math.cos(h),math.sin(h);a,b=d.T;cc=c['camera'];q=(np.column_stack((co*a+si*b,-si*a+co*b,np.full(len(a),.015)))-cc['camera_base_position_m'])@np.array(cc['R_ground_optical']);z=q[:,2];x,y=(q[:,:2]/np.maximum(.01,z[:,None])).T;r=x*x+y*y;k,l=cc['opencv_distortion'][:2];v=1+k*r+l*r*r;return (z>0)&(abs(x*v*cc['focal_px'])<319.5)&(abs(y*v*cc['focal_px'])<239.5)&(np.linalg.norm(d,axis=1)<=1.5)
- def candidates(self,t):return [k for k,v in self.db.items() if v['hits']>=2 and not v['taken'] and t-v['t']<40 and clearance(v['p'])>.04]
+ def mapped(self,t):
+  return [k for k,v in self.db.items() if v['hits']>=2 and not v['taken'] and t-v['t']<40]
+ def candidates(self,t):
+  return [k for k in self.mapped(t) if clearance(self.db[k]['p'])>.04]
  def act(self,o):
   v=o['pose'];p=np.array([v['x_m'],v['y_m']]);h=v['yaw_rad'];t=o['time_s'];self.pos=p;self.yaw=h;self.target=None
   self.speed=self.rate=0.
@@ -198,13 +201,9 @@ def compose(o,top,b,ref,a):
   text(im,str(b.counts[j]),xy([-.13,y-.025]),.43,col)
  if b.goal is not None:path.append(b.goal)
  if len(path)>1:cv2.polylines(im,[np.array(list(map(xy,path)))],False,(82,187,250),2)
- ids=b.candidates(t)
- for v in b.db.values():
-  if v.get('pending') and not v['taken']:cv2.circle(im,xy(v['p']),6,(55,180,255),1)
- for v in b.db.values():
-  if not v["taken"] and v["hits"]>=2 and t-v["t"]<40 and clearance(v["p"])<=.04:cv2.circle(im,xy(v["p"]),4,(55,180,255),1)
+ ids=b.mapped(t)
  for k in ids:cv2.circle(im,xy(b.db[k]['p']),4,(130,228,160),-1)
- cv2.arrowedLine(im,xy(p),xy(p+.17*np.array([math.cos(h),math.sin(h)])),(241,194,92),3,tipLength=.35);text(im,'Green: selectable   |   Rings: mapped near goal   |   Amber line: plan',(18,883),.47)
+ cv2.arrowedLine(im,xy(p),xy(p+.17*np.array([math.cos(h),math.sin(h)])),(241,194,92),3,tipLength=.35);text(im,'Green: mapped pieces   |   Amber line: plan',(18,883),.47)
  rows=[('SIM CLOCK',f'{t:05.1f} / 120.0 s'),('STATE',b.state),('BASE XY',f'{p[0]:.3f}, {p[1]:.3f} m'),('YAW',f'{math.degrees(h):+.1f} deg'),('TARGET XY','--' if b.target is None else f'{b.target[0]:.2f}, {b.target[1]:.2f} m'),('CAM / MAP',f'{len(b.boxes)} boxes  /  {len(ids)} tracks'),('TRIP',f'{b.load} estimated on plate  /  {len(b.seq)} queued'),('PLANNER',f'{b.plans} solves  /  {b.odo:.2f} m traveled'),('WHEEL PWM','   '.join(map(str,a['motor_pwm']))),('REFEREE ONLY',f'{len(ref.active)} / 32 in home goal')]
  rows.extend([('SPEED / YAW RATE',f'{b.speed:.3f} m/s   {b.rate:+.1f} deg/s'),('GOAL SLOT','--' if b.goal is None else f'{b.slot+1} / 8  (estimated: {b.counts[b.slot]})')])
  for i,(k,v) in enumerate(rows):yy=508+i*32;text(im,k,(658,yy),.48,(154,174,180));text(im,v,(847,yy),.62,(142,224,177) if i in (1,9) else (237,237,231))
@@ -232,7 +231,7 @@ def main():
     for k in range(prefix*10+1):
      mujoco.mj_kinematics(env.m,env.d);mujoco.mj_camlight(env.m,env.d);o=env.obs();a=b.act(o)
      if k%2==0 or ref.done:
-      im=compose(o,env.render(True),b,ref,a);enc.stdin.write(im.tobytes());log.append(dict(t=env.time,pose=o['pose'],state=b.state,pwm=a['motor_pwm'],detections=len(b.boxes),tracks=len(b.candidates(env.time)),route=b.seq.copy(),pending_map={k:v['p'].tolist() for k,v in b.db.items() if v.get('pending') and not v['taken']},estimated_load=b.load,goal_slot=b.slot,slot_counts=b.counts.copy(),score=len(ref.active),odo=b.odo,plans=b.plans));
+      im=compose(o,env.render(True),b,ref,a);enc.stdin.write(im.tobytes());log.append(dict(t=env.time,pose=o['pose'],state=b.state,pwm=a['motor_pwm'],detections=len(b.boxes),tracks=len(b.mapped(env.time)),route=b.seq.copy(),mapped_pieces={k:b.db[k]['p'].tolist() for k in b.mapped(env.time)},estimated_load=b.load,goal_slot=b.slot,slot_counts=b.counts.copy(),score=len(ref.active),odo=b.odo,plans=b.plans));
       if k==20:cv2.imwrite(str(out/'画面预览.jpg'),im)
      if k%150==0:print('sim',env.time,b.state,len(ref.active),flush=True)
      if ref.done or k==prefix*10:break
