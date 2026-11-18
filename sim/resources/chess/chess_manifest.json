@@ -1,0 +1,2858 @@
+{
+ "pieces": [
+  {
+   "instance_id": 1,
+   "source_piece_id": "红_帥_1",
+   "side": "红",
+   "class": "red",
+   "character": "帥",
+   "source_node_indices": {
+    "wood": 0,
+    "ink": 1,
+    "ring": 2
+   },
+   "source_node_matrix_column_major": [
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    -0.1925,
+    0.0825,
+    0.0,
+    1.0
+   ],
+   "source_layout_axis_center_m": [
+    -0.1925,
+    0.0825,
+    0.0075
+   ],
+   "body_frame_origin": "analytic cylinder axis at mid-height; preview translation removed; no rotation or glyph reflection",
+   "mesh_parts": {
+    "wood": 0,
+    "ink": 1,
+    "ring": 2
+   },
+   "visual_bounds_m": [
+    [
+     -0.023481420516967774,
+     -0.023495355606079103,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023495355606079103,
+     0.0075
+    ]
+   ],
+   "collision_radius_m": 0.0235,
+   "collision_half_height_m": 0.0075
+  },
+  {
+   "instance_id": 2,
+   "source_piece_id": "黑_將_1",
+   "side": "黑",
+   "class": "black",
+   "character": "將",
+   "source_node_indices": {
+    "wood": 48,
+    "ink": 49,
+    "ring": 50
+   },
+   "source_node_matrix_column_major": [
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    -0.1925,
+    -0.0275,
+    0.0,
+    1.0
+   ],
+   "source_layout_axis_center_m": [
+    -0.1925,
+    -0.0275,
+    0.0075
+   ],
+   "body_frame_origin": "analytic cylinder axis at mid-height; preview translation removed; no rotation or glyph reflection",
+   "mesh_parts": {
+    "wood": 21,
+    "ink": 22,
+    "ring": 23
+   },
+   "visual_bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "collision_radius_m": 0.0235,
+   "collision_half_height_m": 0.0075
+  },
+  {
+   "instance_id": 3,
+   "source_piece_id": "红_仕_1",
+   "side": "红",
+   "class": "red",
+   "character": "仕",
+   "source_node_indices": {
+    "wood": 3,
+    "ink": 4,
+    "ring": 5
+   },
+   "source_node_matrix_column_major": [
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    -0.1375,
+    0.0825,
+    0.0,
+    1.0
+   ],
+   "source_layout_axis_center_m": [
+    -0.1375,
+    0.0825,
+    0.0075
+   ],
+   "body_frame_origin": "analytic cylinder axis at mid-height; preview translation removed; no rotation or glyph reflection",
+   "mesh_parts": {
+    "wood": 3,
+    "ink": 4,
+    "ring": 5
+   },
+   "visual_bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "collision_radius_m": 0.0235,
+   "collision_half_height_m": 0.0075
+  },
+  {
+   "instance_id": 4,
+   "source_piece_id": "黑_士_1",
+   "side": "黑",
+   "class": "black",
+   "character": "士",
+   "source_node_indices": {
+    "wood": 51,
+    "ink": 52,
+    "ring": 53
+   },
+   "source_node_matrix_column_major": [
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    -0.1375,
+    -0.0275,
+    0.0,
+    1.0
+   ],
+   "source_layout_axis_center_m": [
+    -0.1375,
+    -0.0275,
+    0.0075
+   ],
+   "body_frame_origin": "analytic cylinder axis at mid-height; preview translation removed; no rotation or glyph reflection",
+   "mesh_parts": {
+    "wood": 24,
+    "ink": 25,
+    "ring": 26
+   },
+   "visual_bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "collision_radius_m": 0.0235,
+   "collision_half_height_m": 0.0075
+  },
+  {
+   "instance_id": 5,
+   "source_piece_id": "红_仕_2",
+   "side": "红",
+   "class": "red",
+   "character": "仕",
+   "source_node_indices": {
+    "wood": 6,
+    "ink": 7,
+    "ring": 8
+   },
+   "source_node_matrix_column_major": [
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    -0.0825,
+    0.0825,
+    0.0,
+    1.0
+   ],
+   "source_layout_axis_center_m": [
+    -0.0825,
+    0.0825,
+    0.0075
+   ],
+   "body_frame_origin": "analytic cylinder axis at mid-height; preview translation removed; no rotation or glyph reflection",
+   "mesh_parts": {
+    "wood": 3,
+    "ink": 4,
+    "ring": 5
+   },
+   "visual_bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "collision_radius_m": 0.0235,
+   "collision_half_height_m": 0.0075
+  },
+  {
+   "instance_id": 6,
+   "source_piece_id": "黑_士_2",
+   "side": "黑",
+   "class": "black",
+   "character": "士",
+   "source_node_indices": {
+    "wood": 54,
+    "ink": 55,
+    "ring": 56
+   },
+   "source_node_matrix_column_major": [
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    -0.0825,
+    -0.0275,
+    0.0,
+    1.0
+   ],
+   "source_layout_axis_center_m": [
+    -0.0825,
+    -0.0275,
+    0.0075
+   ],
+   "body_frame_origin": "analytic cylinder axis at mid-height; preview translation removed; no rotation or glyph reflection",
+   "mesh_parts": {
+    "wood": 24,
+    "ink": 25,
+    "ring": 26
+   },
+   "visual_bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "collision_radius_m": 0.0235,
+   "collision_half_height_m": 0.0075
+  },
+  {
+   "instance_id": 7,
+   "source_piece_id": "红_相_1",
+   "side": "红",
+   "class": "red",
+   "character": "相",
+   "source_node_indices": {
+    "wood": 9,
+    "ink": 10,
+    "ring": 11
+   },
+   "source_node_matrix_column_major": [
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    -0.0275,
+    0.0825,
+    0.0,
+    1.0
+   ],
+   "source_layout_axis_center_m": [
+    -0.0275,
+    0.0825,
+    0.0075
+   ],
+   "body_frame_origin": "analytic cylinder axis at mid-height; preview translation removed; no rotation or glyph reflection",
+   "mesh_parts": {
+    "wood": 6,
+    "ink": 7,
+    "ring": 8
+   },
+   "visual_bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "collision_radius_m": 0.0235,
+   "collision_half_height_m": 0.0075
+  },
+  {
+   "instance_id": 8,
+   "source_piece_id": "黑_象_1",
+   "side": "黑",
+   "class": "black",
+   "character": "象",
+   "source_node_indices": {
+    "wood": 57,
+    "ink": 58,
+    "ring": 59
+   },
+   "source_node_matrix_column_major": [
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    -0.0275,
+    -0.0275,
+    0.0,
+    1.0
+   ],
+   "source_layout_axis_center_m": [
+    -0.0275,
+    -0.0275,
+    0.0075
+   ],
+   "body_frame_origin": "analytic cylinder axis at mid-height; preview translation removed; no rotation or glyph reflection",
+   "mesh_parts": {
+    "wood": 27,
+    "ink": 28,
+    "ring": 29
+   },
+   "visual_bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "collision_radius_m": 0.0235,
+   "collision_half_height_m": 0.0075
+  },
+  {
+   "instance_id": 9,
+   "source_piece_id": "红_相_2",
+   "side": "红",
+   "class": "red",
+   "character": "相",
+   "source_node_indices": {
+    "wood": 12,
+    "ink": 13,
+    "ring": 14
+   },
+   "source_node_matrix_column_major": [
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0275,
+    0.0825,
+    0.0,
+    1.0
+   ],
+   "source_layout_axis_center_m": [
+    0.0275,
+    0.0825,
+    0.0075
+   ],
+   "body_frame_origin": "analytic cylinder axis at mid-height; preview translation removed; no rotation or glyph reflection",
+   "mesh_parts": {
+    "wood": 6,
+    "ink": 7,
+    "ring": 8
+   },
+   "visual_bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "collision_radius_m": 0.0235,
+   "collision_half_height_m": 0.0075
+  },
+  {
+   "instance_id": 10,
+   "source_piece_id": "黑_象_2",
+   "side": "黑",
+   "class": "black",
+   "character": "象",
+   "source_node_indices": {
+    "wood": 60,
+    "ink": 61,
+    "ring": 62
+   },
+   "source_node_matrix_column_major": [
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0275,
+    -0.0275,
+    0.0,
+    1.0
+   ],
+   "source_layout_axis_center_m": [
+    0.0275,
+    -0.0275,
+    0.0075
+   ],
+   "body_frame_origin": "analytic cylinder axis at mid-height; preview translation removed; no rotation or glyph reflection",
+   "mesh_parts": {
+    "wood": 27,
+    "ink": 28,
+    "ring": 29
+   },
+   "visual_bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "collision_radius_m": 0.0235,
+   "collision_half_height_m": 0.0075
+  },
+  {
+   "instance_id": 11,
+   "source_piece_id": "红_車_1",
+   "side": "红",
+   "class": "red",
+   "character": "車",
+   "source_node_indices": {
+    "wood": 15,
+    "ink": 16,
+    "ring": 17
+   },
+   "source_node_matrix_column_major": [
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0825,
+    0.0825,
+    0.0,
+    1.0
+   ],
+   "source_layout_axis_center_m": [
+    0.0825,
+    0.0825,
+    0.0075
+   ],
+   "body_frame_origin": "analytic cylinder axis at mid-height; preview translation removed; no rotation or glyph reflection",
+   "mesh_parts": {
+    "wood": 9,
+    "ink": 10,
+    "ring": 11
+   },
+   "visual_bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "collision_radius_m": 0.0235,
+   "collision_half_height_m": 0.0075
+  },
+  {
+   "instance_id": 12,
+   "source_piece_id": "黑_車_1",
+   "side": "黑",
+   "class": "black",
+   "character": "車",
+   "source_node_indices": {
+    "wood": 63,
+    "ink": 64,
+    "ring": 65
+   },
+   "source_node_matrix_column_major": [
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0825,
+    -0.0275,
+    0.0,
+    1.0
+   ],
+   "source_layout_axis_center_m": [
+    0.0825,
+    -0.0275,
+    0.0075
+   ],
+   "body_frame_origin": "analytic cylinder axis at mid-height; preview translation removed; no rotation or glyph reflection",
+   "mesh_parts": {
+    "wood": 30,
+    "ink": 31,
+    "ring": 32
+   },
+   "visual_bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "collision_radius_m": 0.0235,
+   "collision_half_height_m": 0.0075
+  },
+  {
+   "instance_id": 13,
+   "source_piece_id": "红_車_2",
+   "side": "红",
+   "class": "red",
+   "character": "車",
+   "source_node_indices": {
+    "wood": 18,
+    "ink": 19,
+    "ring": 20
+   },
+   "source_node_matrix_column_major": [
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.1375,
+    0.0825,
+    0.0,
+    1.0
+   ],
+   "source_layout_axis_center_m": [
+    0.1375,
+    0.0825,
+    0.0075
+   ],
+   "body_frame_origin": "analytic cylinder axis at mid-height; preview translation removed; no rotation or glyph reflection",
+   "mesh_parts": {
+    "wood": 9,
+    "ink": 10,
+    "ring": 11
+   },
+   "visual_bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "collision_radius_m": 0.0235,
+   "collision_half_height_m": 0.0075
+  },
+  {
+   "instance_id": 14,
+   "source_piece_id": "黑_車_2",
+   "side": "黑",
+   "class": "black",
+   "character": "車",
+   "source_node_indices": {
+    "wood": 66,
+    "ink": 67,
+    "ring": 68
+   },
+   "source_node_matrix_column_major": [
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.1375,
+    -0.0275,
+    0.0,
+    1.0
+   ],
+   "source_layout_axis_center_m": [
+    0.1375,
+    -0.0275,
+    0.0075
+   ],
+   "body_frame_origin": "analytic cylinder axis at mid-height; preview translation removed; no rotation or glyph reflection",
+   "mesh_parts": {
+    "wood": 30,
+    "ink": 31,
+    "ring": 32
+   },
+   "visual_bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "collision_radius_m": 0.0235,
+   "collision_half_height_m": 0.0075
+  },
+  {
+   "instance_id": 15,
+   "source_piece_id": "红_馬_1",
+   "side": "红",
+   "class": "red",
+   "character": "馬",
+   "source_node_indices": {
+    "wood": 21,
+    "ink": 22,
+    "ring": 23
+   },
+   "source_node_matrix_column_major": [
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.1925,
+    0.0825,
+    0.0,
+    1.0
+   ],
+   "source_layout_axis_center_m": [
+    0.1925,
+    0.0825,
+    0.0075
+   ],
+   "body_frame_origin": "analytic cylinder axis at mid-height; preview translation removed; no rotation or glyph reflection",
+   "mesh_parts": {
+    "wood": 12,
+    "ink": 13,
+    "ring": 14
+   },
+   "visual_bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "collision_radius_m": 0.0235,
+   "collision_half_height_m": 0.0075
+  },
+  {
+   "instance_id": 16,
+   "source_piece_id": "黑_馬_1",
+   "side": "黑",
+   "class": "black",
+   "character": "馬",
+   "source_node_indices": {
+    "wood": 69,
+    "ink": 70,
+    "ring": 71
+   },
+   "source_node_matrix_column_major": [
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.1925,
+    -0.0275,
+    0.0,
+    1.0
+   ],
+   "source_layout_axis_center_m": [
+    0.1925,
+    -0.0275,
+    0.0075
+   ],
+   "body_frame_origin": "analytic cylinder axis at mid-height; preview translation removed; no rotation or glyph reflection",
+   "mesh_parts": {
+    "wood": 33,
+    "ink": 34,
+    "ring": 35
+   },
+   "visual_bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "collision_radius_m": 0.0235,
+   "collision_half_height_m": 0.0075
+  },
+  {
+   "instance_id": 17,
+   "source_piece_id": "红_馬_2",
+   "side": "红",
+   "class": "red",
+   "character": "馬",
+   "source_node_indices": {
+    "wood": 24,
+    "ink": 25,
+    "ring": 26
+   },
+   "source_node_matrix_column_major": [
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    -0.1925,
+    0.0275,
+    0.0,
+    1.0
+   ],
+   "source_layout_axis_center_m": [
+    -0.1925,
+    0.0275,
+    0.0075
+   ],
+   "body_frame_origin": "analytic cylinder axis at mid-height; preview translation removed; no rotation or glyph reflection",
+   "mesh_parts": {
+    "wood": 12,
+    "ink": 13,
+    "ring": 14
+   },
+   "visual_bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "collision_radius_m": 0.0235,
+   "collision_half_height_m": 0.0075
+  },
+  {
+   "instance_id": 18,
+   "source_piece_id": "黑_馬_2",
+   "side": "黑",
+   "class": "black",
+   "character": "馬",
+   "source_node_indices": {
+    "wood": 72,
+    "ink": 73,
+    "ring": 74
+   },
+   "source_node_matrix_column_major": [
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    -0.1925,
+    -0.0825,
+    0.0,
+    1.0
+   ],
+   "source_layout_axis_center_m": [
+    -0.1925,
+    -0.0825,
+    0.0075
+   ],
+   "body_frame_origin": "analytic cylinder axis at mid-height; preview translation removed; no rotation or glyph reflection",
+   "mesh_parts": {
+    "wood": 33,
+    "ink": 34,
+    "ring": 35
+   },
+   "visual_bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "collision_radius_m": 0.0235,
+   "collision_half_height_m": 0.0075
+  },
+  {
+   "instance_id": 19,
+   "source_piece_id": "红_炮_1",
+   "side": "红",
+   "class": "red",
+   "character": "炮",
+   "source_node_indices": {
+    "wood": 27,
+    "ink": 28,
+    "ring": 29
+   },
+   "source_node_matrix_column_major": [
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    -0.1375,
+    0.0275,
+    0.0,
+    1.0
+   ],
+   "source_layout_axis_center_m": [
+    -0.1375,
+    0.0275,
+    0.0075
+   ],
+   "body_frame_origin": "analytic cylinder axis at mid-height; preview translation removed; no rotation or glyph reflection",
+   "mesh_parts": {
+    "wood": 15,
+    "ink": 16,
+    "ring": 17
+   },
+   "visual_bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "collision_radius_m": 0.0235,
+   "collision_half_height_m": 0.0075
+  },
+  {
+   "instance_id": 20,
+   "source_piece_id": "黑_炮_1",
+   "side": "黑",
+   "class": "black",
+   "character": "炮",
+   "source_node_indices": {
+    "wood": 75,
+    "ink": 76,
+    "ring": 77
+   },
+   "source_node_matrix_column_major": [
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    -0.1375,
+    -0.0825,
+    0.0,
+    1.0
+   ],
+   "source_layout_axis_center_m": [
+    -0.1375,
+    -0.0825,
+    0.0075
+   ],
+   "body_frame_origin": "analytic cylinder axis at mid-height; preview translation removed; no rotation or glyph reflection",
+   "mesh_parts": {
+    "wood": 36,
+    "ink": 37,
+    "ring": 38
+   },
+   "visual_bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "collision_radius_m": 0.0235,
+   "collision_half_height_m": 0.0075
+  },
+  {
+   "instance_id": 21,
+   "source_piece_id": "红_炮_2",
+   "side": "红",
+   "class": "red",
+   "character": "炮",
+   "source_node_indices": {
+    "wood": 30,
+    "ink": 31,
+    "ring": 32
+   },
+   "source_node_matrix_column_major": [
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    -0.0825,
+    0.0275,
+    0.0,
+    1.0
+   ],
+   "source_layout_axis_center_m": [
+    -0.0825,
+    0.0275,
+    0.0075
+   ],
+   "body_frame_origin": "analytic cylinder axis at mid-height; preview translation removed; no rotation or glyph reflection",
+   "mesh_parts": {
+    "wood": 15,
+    "ink": 16,
+    "ring": 17
+   },
+   "visual_bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "collision_radius_m": 0.0235,
+   "collision_half_height_m": 0.0075
+  },
+  {
+   "instance_id": 22,
+   "source_piece_id": "黑_炮_2",
+   "side": "黑",
+   "class": "black",
+   "character": "炮",
+   "source_node_indices": {
+    "wood": 78,
+    "ink": 79,
+    "ring": 80
+   },
+   "source_node_matrix_column_major": [
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    -0.0825,
+    -0.0825,
+    0.0,
+    1.0
+   ],
+   "source_layout_axis_center_m": [
+    -0.0825,
+    -0.0825,
+    0.0075
+   ],
+   "body_frame_origin": "analytic cylinder axis at mid-height; preview translation removed; no rotation or glyph reflection",
+   "mesh_parts": {
+    "wood": 36,
+    "ink": 37,
+    "ring": 38
+   },
+   "visual_bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "collision_radius_m": 0.0235,
+   "collision_half_height_m": 0.0075
+  },
+  {
+   "instance_id": 23,
+   "source_piece_id": "红_兵_1",
+   "side": "红",
+   "class": "red",
+   "character": "兵",
+   "source_node_indices": {
+    "wood": 33,
+    "ink": 34,
+    "ring": 35
+   },
+   "source_node_matrix_column_major": [
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    -0.0275,
+    0.0275,
+    0.0,
+    1.0
+   ],
+   "source_layout_axis_center_m": [
+    -0.0275,
+    0.0275,
+    0.0075
+   ],
+   "body_frame_origin": "analytic cylinder axis at mid-height; preview translation removed; no rotation or glyph reflection",
+   "mesh_parts": {
+    "wood": 18,
+    "ink": 19,
+    "ring": 20
+   },
+   "visual_bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "collision_radius_m": 0.0235,
+   "collision_half_height_m": 0.0075
+  },
+  {
+   "instance_id": 24,
+   "source_piece_id": "黑_卒_1",
+   "side": "黑",
+   "class": "black",
+   "character": "卒",
+   "source_node_indices": {
+    "wood": 81,
+    "ink": 82,
+    "ring": 83
+   },
+   "source_node_matrix_column_major": [
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    -0.0275,
+    -0.0825,
+    0.0,
+    1.0
+   ],
+   "source_layout_axis_center_m": [
+    -0.0275,
+    -0.0825,
+    0.0075
+   ],
+   "body_frame_origin": "analytic cylinder axis at mid-height; preview translation removed; no rotation or glyph reflection",
+   "mesh_parts": {
+    "wood": 39,
+    "ink": 40,
+    "ring": 41
+   },
+   "visual_bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "collision_radius_m": 0.0235,
+   "collision_half_height_m": 0.0075
+  },
+  {
+   "instance_id": 25,
+   "source_piece_id": "红_兵_2",
+   "side": "红",
+   "class": "red",
+   "character": "兵",
+   "source_node_indices": {
+    "wood": 36,
+    "ink": 37,
+    "ring": 38
+   },
+   "source_node_matrix_column_major": [
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0275,
+    0.0275,
+    0.0,
+    1.0
+   ],
+   "source_layout_axis_center_m": [
+    0.0275,
+    0.0275,
+    0.0075
+   ],
+   "body_frame_origin": "analytic cylinder axis at mid-height; preview translation removed; no rotation or glyph reflection",
+   "mesh_parts": {
+    "wood": 18,
+    "ink": 19,
+    "ring": 20
+   },
+   "visual_bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "collision_radius_m": 0.0235,
+   "collision_half_height_m": 0.0075
+  },
+  {
+   "instance_id": 26,
+   "source_piece_id": "黑_卒_2",
+   "side": "黑",
+   "class": "black",
+   "character": "卒",
+   "source_node_indices": {
+    "wood": 84,
+    "ink": 85,
+    "ring": 86
+   },
+   "source_node_matrix_column_major": [
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0275,
+    -0.0825,
+    0.0,
+    1.0
+   ],
+   "source_layout_axis_center_m": [
+    0.0275,
+    -0.0825,
+    0.0075
+   ],
+   "body_frame_origin": "analytic cylinder axis at mid-height; preview translation removed; no rotation or glyph reflection",
+   "mesh_parts": {
+    "wood": 39,
+    "ink": 40,
+    "ring": 41
+   },
+   "visual_bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "collision_radius_m": 0.0235,
+   "collision_half_height_m": 0.0075
+  },
+  {
+   "instance_id": 27,
+   "source_piece_id": "红_兵_3",
+   "side": "红",
+   "class": "red",
+   "character": "兵",
+   "source_node_indices": {
+    "wood": 39,
+    "ink": 40,
+    "ring": 41
+   },
+   "source_node_matrix_column_major": [
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0825,
+    0.0275,
+    0.0,
+    1.0
+   ],
+   "source_layout_axis_center_m": [
+    0.0825,
+    0.0275,
+    0.0075
+   ],
+   "body_frame_origin": "analytic cylinder axis at mid-height; preview translation removed; no rotation or glyph reflection",
+   "mesh_parts": {
+    "wood": 18,
+    "ink": 19,
+    "ring": 20
+   },
+   "visual_bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "collision_radius_m": 0.0235,
+   "collision_half_height_m": 0.0075
+  },
+  {
+   "instance_id": 28,
+   "source_piece_id": "黑_卒_3",
+   "side": "黑",
+   "class": "black",
+   "character": "卒",
+   "source_node_indices": {
+    "wood": 87,
+    "ink": 88,
+    "ring": 89
+   },
+   "source_node_matrix_column_major": [
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0825,
+    -0.0825,
+    0.0,
+    1.0
+   ],
+   "source_layout_axis_center_m": [
+    0.0825,
+    -0.0825,
+    0.0075
+   ],
+   "body_frame_origin": "analytic cylinder axis at mid-height; preview translation removed; no rotation or glyph reflection",
+   "mesh_parts": {
+    "wood": 39,
+    "ink": 40,
+    "ring": 41
+   },
+   "visual_bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "collision_radius_m": 0.0235,
+   "collision_half_height_m": 0.0075
+  },
+  {
+   "instance_id": 29,
+   "source_piece_id": "红_兵_4",
+   "side": "红",
+   "class": "red",
+   "character": "兵",
+   "source_node_indices": {
+    "wood": 42,
+    "ink": 43,
+    "ring": 44
+   },
+   "source_node_matrix_column_major": [
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.1375,
+    0.0275,
+    0.0,
+    1.0
+   ],
+   "source_layout_axis_center_m": [
+    0.1375,
+    0.0275,
+    0.0075
+   ],
+   "body_frame_origin": "analytic cylinder axis at mid-height; preview translation removed; no rotation or glyph reflection",
+   "mesh_parts": {
+    "wood": 18,
+    "ink": 19,
+    "ring": 20
+   },
+   "visual_bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "collision_radius_m": 0.0235,
+   "collision_half_height_m": 0.0075
+  },
+  {
+   "instance_id": 30,
+   "source_piece_id": "黑_卒_4",
+   "side": "黑",
+   "class": "black",
+   "character": "卒",
+   "source_node_indices": {
+    "wood": 90,
+    "ink": 91,
+    "ring": 92
+   },
+   "source_node_matrix_column_major": [
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.1375,
+    -0.0825,
+    0.0,
+    1.0
+   ],
+   "source_layout_axis_center_m": [
+    0.1375,
+    -0.0825,
+    0.0075
+   ],
+   "body_frame_origin": "analytic cylinder axis at mid-height; preview translation removed; no rotation or glyph reflection",
+   "mesh_parts": {
+    "wood": 39,
+    "ink": 40,
+    "ring": 41
+   },
+   "visual_bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "collision_radius_m": 0.0235,
+   "collision_half_height_m": 0.0075
+  },
+  {
+   "instance_id": 31,
+   "source_piece_id": "红_兵_5",
+   "side": "红",
+   "class": "red",
+   "character": "兵",
+   "source_node_indices": {
+    "wood": 45,
+    "ink": 46,
+    "ring": 47
+   },
+   "source_node_matrix_column_major": [
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.1925,
+    0.0275,
+    0.0,
+    1.0
+   ],
+   "source_layout_axis_center_m": [
+    0.1925,
+    0.0275,
+    0.0075
+   ],
+   "body_frame_origin": "analytic cylinder axis at mid-height; preview translation removed; no rotation or glyph reflection",
+   "mesh_parts": {
+    "wood": 18,
+    "ink": 19,
+    "ring": 20
+   },
+   "visual_bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "collision_radius_m": 0.0235,
+   "collision_half_height_m": 0.0075
+  },
+  {
+   "instance_id": 32,
+   "source_piece_id": "黑_卒_5",
+   "side": "黑",
+   "class": "black",
+   "character": "卒",
+   "source_node_indices": {
+    "wood": 93,
+    "ink": 94,
+    "ring": 95
+   },
+   "source_node_matrix_column_major": [
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.001,
+    0.0,
+    0.1925,
+    -0.0825,
+    0.0,
+    1.0
+   ],
+   "source_layout_axis_center_m": [
+    0.1925,
+    -0.0825,
+    0.0075
+   ],
+   "body_frame_origin": "analytic cylinder axis at mid-height; preview translation removed; no rotation or glyph reflection",
+   "mesh_parts": {
+    "wood": 39,
+    "ink": 40,
+    "ring": 41
+   },
+   "visual_bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "collision_radius_m": 0.0235,
+   "collision_half_height_m": 0.0075
+  }
+ ],
+ "meshes": {
+  "0": {
+   "file": "visual_00.obj",
+   "source_mesh": 0,
+   "name": "红_帥_wood",
+   "rgba": [
+    0.9058823529411765,
+    0.7803921568627451,
+    0.5607843137254902,
+    1.0
+   ],
+   "vertices": 9897,
+   "triangles": 19790,
+   "bounds_m": [
+    [
+     -0.023481420516967774,
+     -0.023495355606079103,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023495355606079103,
+     0.0075
+    ]
+   ],
+   "sha256": "4336de845203c7cf30f1ee322fe78adc4c64b9139978264cafdfc6e4c21fe574"
+  },
+  "1": {
+   "file": "visual_01.obj",
+   "source_mesh": 1,
+   "name": "红_帥_ink",
+   "rgba": [
+    0.6666666666666666,
+    0.10196078431372549,
+    0.11764705882352941,
+    1.0
+   ],
+   "vertices": 4262,
+   "triangles": 8524,
+   "bounds_m": [
+    [
+     -0.010611252784729004,
+     -0.012578607559204102,
+     -0.006980000019073486
+    ],
+    [
+     0.010611252784729004,
+     0.012578607559204102,
+     0.006979999542236329
+    ]
+   ],
+   "sha256": "5e45652162a84d2cf8b2db323107740e4ff7fa6fb6ed3e018eee18a2658e411d"
+  },
+  "2": {
+   "file": "visual_02.obj",
+   "source_mesh": 2,
+   "name": "红_帥_ring",
+   "rgba": [
+    0.6078431372549019,
+    0.4196078431372549,
+    0.20392156862745098,
+    1.0
+   ],
+   "vertices": 1264,
+   "triangles": 2528,
+   "bounds_m": [
+    [
+     -0.020823524475097655,
+     -0.020835880279541016,
+     -0.0072800000011920924
+    ],
+    [
+     0.02084000015258789,
+     0.020835880279541016,
+     0.007279999732971191
+    ]
+   ],
+   "sha256": "8126a0c0573e0bfaefacd69d8b8ff0f528fb5cfb439de6bc817a86f7c76b027c"
+  },
+  "3": {
+   "file": "visual_03.obj",
+   "source_mesh": 3,
+   "name": "红_仕_wood",
+   "rgba": [
+    0.9058823529411765,
+    0.7803921568627451,
+    0.5607843137254902,
+    1.0
+   ],
+   "vertices": 10422,
+   "triangles": 20840,
+   "bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "sha256": "f20ddb37643278d47c24e79534afc57bfdb706679346e58867590079151080bc"
+  },
+  "4": {
+   "file": "visual_04.obj",
+   "source_mesh": 4,
+   "name": "红_仕_ink",
+   "rgba": [
+    0.6666666666666666,
+    0.10196078431372549,
+    0.11764705882352941,
+    1.0
+   ],
+   "vertices": 2216,
+   "triangles": 4416,
+   "bounds_m": [
+    [
+     -0.012897377967834472,
+     -0.011079206466674804,
+     -0.006980000019073486
+    ],
+    [
+     0.012897377967834472,
+     0.011079206466674804,
+     0.006979999542236329
+    ]
+   ],
+   "sha256": "a86769466b12ed962cbc3c5d627056d2c3ee5d737eb322e0366ebf4ee7ed1a45"
+  },
+  "5": {
+   "file": "visual_05.obj",
+   "source_mesh": 5,
+   "name": "红_仕_ring",
+   "rgba": [
+    0.6078431372549019,
+    0.4196078431372549,
+    0.20392156862745098,
+    1.0
+   ],
+   "vertices": 1264,
+   "triangles": 2528,
+   "bounds_m": [
+    [
+     -0.020823524475097655,
+     -0.020835880279541016,
+     -0.0072800000011920924
+    ],
+    [
+     0.02084000015258789,
+     0.020835880279541016,
+     0.007279999732971191
+    ]
+   ],
+   "sha256": "8126a0c0573e0bfaefacd69d8b8ff0f528fb5cfb439de6bc817a86f7c76b027c"
+  },
+  "6": {
+   "file": "visual_06.obj",
+   "source_mesh": 6,
+   "name": "红_相_wood",
+   "rgba": [
+    0.9058823529411765,
+    0.7803921568627451,
+    0.5607843137254902,
+    1.0
+   ],
+   "vertices": 11613,
+   "triangles": 23222,
+   "bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "sha256": "e088b387211ce5eaa26b49f87fac92bf88521cda7bfec1a7e0d41f90ae76ae0d"
+  },
+  "7": {
+   "file": "visual_07.obj",
+   "source_mesh": 7,
+   "name": "红_相_ink",
+   "rgba": [
+    0.6666666666666666,
+    0.10196078431372549,
+    0.11764705882352941,
+    1.0
+   ],
+   "vertices": 3345,
+   "triangles": 6698,
+   "bounds_m": [
+    [
+     -0.012548416137695313,
+     -0.012733446121215821,
+     -0.006980000019073486
+    ],
+    [
+     0.012548416137695313,
+     0.012733446121215821,
+     0.006979999542236329
+    ]
+   ],
+   "sha256": "f98b514f0ec902728386fc08bbc1b0cf306e9efde4cc2a56990119a75e71124e"
+  },
+  "8": {
+   "file": "visual_08.obj",
+   "source_mesh": 8,
+   "name": "红_相_ring",
+   "rgba": [
+    0.6078431372549019,
+    0.4196078431372549,
+    0.20392156862745098,
+    1.0
+   ],
+   "vertices": 1264,
+   "triangles": 2528,
+   "bounds_m": [
+    [
+     -0.020823524475097655,
+     -0.020835880279541016,
+     -0.0072800000011920924
+    ],
+    [
+     0.02084000015258789,
+     0.020835880279541016,
+     0.007279999732971191
+    ]
+   ],
+   "sha256": "8126a0c0573e0bfaefacd69d8b8ff0f528fb5cfb439de6bc817a86f7c76b027c"
+  },
+  "9": {
+   "file": "visual_09.obj",
+   "source_mesh": 9,
+   "name": "红_車_wood",
+   "rgba": [
+    0.9058823529411765,
+    0.7803921568627451,
+    0.5607843137254902,
+    1.0
+   ],
+   "vertices": 11198,
+   "triangles": 22392,
+   "bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "sha256": "6088795a6e53d2adfa24a9305eefc546e8f6ecc776a9f237456d3fb62b738dd5"
+  },
+  "10": {
+   "file": "visual_10.obj",
+   "source_mesh": 10,
+   "name": "红_車_ink",
+   "rgba": [
+    0.6666666666666666,
+    0.10196078431372549,
+    0.11764705882352941,
+    1.0
+   ],
+   "vertices": 2918,
+   "triangles": 5860,
+   "bounds_m": [
+    [
+     -0.011838472366333008,
+     -0.012981316566467286,
+     -0.006980000019073486
+    ],
+    [
+     0.011838472366333008,
+     0.012981316566467286,
+     0.006979999542236329
+    ]
+   ],
+   "sha256": "37d70b0f17f4ba2c953555d064f520492523869c35ebe24827a791fdfb57077f"
+  },
+  "11": {
+   "file": "visual_11.obj",
+   "source_mesh": 11,
+   "name": "红_車_ring",
+   "rgba": [
+    0.6078431372549019,
+    0.4196078431372549,
+    0.20392156862745098,
+    1.0
+   ],
+   "vertices": 1264,
+   "triangles": 2528,
+   "bounds_m": [
+    [
+     -0.020823524475097655,
+     -0.020835880279541016,
+     -0.0072800000011920924
+    ],
+    [
+     0.02084000015258789,
+     0.020835880279541016,
+     0.007279999732971191
+    ]
+   ],
+   "sha256": "8126a0c0573e0bfaefacd69d8b8ff0f528fb5cfb439de6bc817a86f7c76b027c"
+  },
+  "12": {
+   "file": "visual_12.obj",
+   "source_mesh": 12,
+   "name": "红_馬_wood",
+   "rgba": [
+    0.9058823529411765,
+    0.7803921568627451,
+    0.5607843137254902,
+    1.0
+   ],
+   "vertices": 12874,
+   "triangles": 25744,
+   "bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "sha256": "fa170c9e2ecd6cb326fea1428b3fc43690e2dc7e6030bb40216fbf0054978d14"
+  },
+  "13": {
+   "file": "visual_13.obj",
+   "source_mesh": 13,
+   "name": "红_馬_ink",
+   "rgba": [
+    0.6666666666666666,
+    0.10196078431372549,
+    0.11764705882352941,
+    1.0
+   ],
+   "vertices": 4280,
+   "triangles": 8544,
+   "bounds_m": [
+    [
+     -0.010885088920593262,
+     -0.011726523399353027,
+     -0.006980000019073486
+    ],
+    [
+     0.010885088920593262,
+     0.011726523399353027,
+     0.006979999542236329
+    ]
+   ],
+   "sha256": "f931a794cb884bc065b88c6c5866687f83ddb4553707966730289692d4e43067"
+  },
+  "14": {
+   "file": "visual_14.obj",
+   "source_mesh": 14,
+   "name": "红_馬_ring",
+   "rgba": [
+    0.6078431372549019,
+    0.4196078431372549,
+    0.20392156862745098,
+    1.0
+   ],
+   "vertices": 1264,
+   "triangles": 2528,
+   "bounds_m": [
+    [
+     -0.020823524475097655,
+     -0.020835880279541016,
+     -0.0072800000011920924
+    ],
+    [
+     0.02084000015258789,
+     0.020835880279541016,
+     0.007279999732971191
+    ]
+   ],
+   "sha256": "8126a0c0573e0bfaefacd69d8b8ff0f528fb5cfb439de6bc817a86f7c76b027c"
+  },
+  "15": {
+   "file": "visual_15.obj",
+   "source_mesh": 15,
+   "name": "红_炮_wood",
+   "rgba": [
+    0.9058823529411765,
+    0.7803921568627451,
+    0.5607843137254902,
+    1.0
+   ],
+   "vertices": 13537,
+   "triangles": 27070,
+   "bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "sha256": "1777e6af118a43744f8608524182fd22e59695982e99c9cc2bc3f2531dd756c7"
+  },
+  "16": {
+   "file": "visual_16.obj",
+   "source_mesh": 16,
+   "name": "红_炮_ink",
+   "rgba": [
+    0.6666666666666666,
+    0.10196078431372549,
+    0.11764705882352941,
+    1.0
+   ],
+   "vertices": 4673,
+   "triangles": 9322,
+   "bounds_m": [
+    [
+     -0.012392294883728028,
+     -0.011627885818481445,
+     -0.006980000019073486
+    ],
+    [
+     0.012392294883728028,
+     0.011627885818481445,
+     0.006979999542236329
+    ]
+   ],
+   "sha256": "53d7292fade75e9d562e1e06253753d987bad0037a6aa87d91aa720ea37774c4"
+  },
+  "17": {
+   "file": "visual_17.obj",
+   "source_mesh": 17,
+   "name": "红_炮_ring",
+   "rgba": [
+    0.6078431372549019,
+    0.4196078431372549,
+    0.20392156862745098,
+    1.0
+   ],
+   "vertices": 1264,
+   "triangles": 2528,
+   "bounds_m": [
+    [
+     -0.020823524475097655,
+     -0.020835880279541016,
+     -0.0072800000011920924
+    ],
+    [
+     0.02084000015258789,
+     0.020835880279541016,
+     0.007279999732971191
+    ]
+   ],
+   "sha256": "8126a0c0573e0bfaefacd69d8b8ff0f528fb5cfb439de6bc817a86f7c76b027c"
+  },
+  "18": {
+   "file": "visual_18.obj",
+   "source_mesh": 18,
+   "name": "红_兵_wood",
+   "rgba": [
+    0.9058823529411765,
+    0.7803921568627451,
+    0.5607843137254902,
+    1.0
+   ],
+   "vertices": 10849,
+   "triangles": 21694,
+   "bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "sha256": "c248aca55217761fca9dbc6ce932f09245261c0c1381d129d7252806f8f69812"
+  },
+  "19": {
+   "file": "visual_19.obj",
+   "source_mesh": 19,
+   "name": "红_兵_ink",
+   "rgba": [
+    0.6666666666666666,
+    0.10196078431372549,
+    0.11764705882352941,
+    1.0
+   ],
+   "vertices": 2594,
+   "triangles": 5172,
+   "bounds_m": [
+    [
+     -0.012167224884033203,
+     -0.011656572341918945,
+     -0.006980000019073486
+    ],
+    [
+     0.012167224884033203,
+     0.011656572341918945,
+     0.006979999542236329
+    ]
+   ],
+   "sha256": "50583e1e806d9ef1282f50c08e2717d591698f9fff2e49ceef99eb1b28765e7a"
+  },
+  "20": {
+   "file": "visual_20.obj",
+   "source_mesh": 20,
+   "name": "红_兵_ring",
+   "rgba": [
+    0.6078431372549019,
+    0.4196078431372549,
+    0.20392156862745098,
+    1.0
+   ],
+   "vertices": 1264,
+   "triangles": 2528,
+   "bounds_m": [
+    [
+     -0.020823524475097655,
+     -0.020835880279541016,
+     -0.0072800000011920924
+    ],
+    [
+     0.02084000015258789,
+     0.020835880279541016,
+     0.007279999732971191
+    ]
+   ],
+   "sha256": "8126a0c0573e0bfaefacd69d8b8ff0f528fb5cfb439de6bc817a86f7c76b027c"
+  },
+  "21": {
+   "file": "visual_21.obj",
+   "source_mesh": 21,
+   "name": "黑_將_wood",
+   "rgba": [
+    0.9058823529411765,
+    0.7803921568627451,
+    0.5607843137254902,
+    1.0
+   ],
+   "vertices": 14803,
+   "triangles": 29602,
+   "bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "sha256": "ac46164ab4191a92b24910e0207df5613dc6906ce9b15d09efb61751a2ecaa3e"
+  },
+  "22": {
+   "file": "visual_22.obj",
+   "source_mesh": 22,
+   "name": "黑_將_ink",
+   "rgba": [
+    0.11764705882352941,
+    0.11372549019607843,
+    0.10588235294117647,
+    1.0
+   ],
+   "vertices": 5596,
+   "triangles": 11160,
+   "bounds_m": [
+    [
+     -0.01247206687927246,
+     -0.011633078575134277,
+     -0.006980000019073486
+    ],
+    [
+     0.01247206687927246,
+     0.011633078575134277,
+     0.006979999542236329
+    ]
+   ],
+   "sha256": "370db46cf71e5ae2bd17968ac27060413a272527f0a4b93cdad1bfd670f6d78a"
+  },
+  "23": {
+   "file": "visual_23.obj",
+   "source_mesh": 23,
+   "name": "黑_將_ring",
+   "rgba": [
+    0.6078431372549019,
+    0.4196078431372549,
+    0.20392156862745098,
+    1.0
+   ],
+   "vertices": 1264,
+   "triangles": 2528,
+   "bounds_m": [
+    [
+     -0.020823524475097655,
+     -0.020835880279541016,
+     -0.0072800000011920924
+    ],
+    [
+     0.02084000015258789,
+     0.020835880279541016,
+     0.007279999732971191
+    ]
+   ],
+   "sha256": "8126a0c0573e0bfaefacd69d8b8ff0f528fb5cfb439de6bc817a86f7c76b027c"
+  },
+  "24": {
+   "file": "visual_24.obj",
+   "source_mesh": 24,
+   "name": "黑_士_wood",
+   "rgba": [
+    0.9058823529411765,
+    0.7803921568627451,
+    0.5607843137254902,
+    1.0
+   ],
+   "vertices": 9368,
+   "triangles": 18732,
+   "bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "sha256": "4e34edb4761cdbabd0f41c3eb0e0d144d03eb04c7fe17b5b88aff6ce212cce18"
+  },
+  "25": {
+   "file": "visual_25.obj",
+   "source_mesh": 25,
+   "name": "黑_士_ink",
+   "rgba": [
+    0.11764705882352941,
+    0.11372549019607843,
+    0.10588235294117647,
+    1.0
+   ],
+   "vertices": 1432,
+   "triangles": 2856,
+   "bounds_m": [
+    [
+     -0.011366659164428711,
+     -0.01004940128326416,
+     -0.006980000019073486
+    ],
+    [
+     0.011366659164428711,
+     0.01004940128326416,
+     0.006979999542236329
+    ]
+   ],
+   "sha256": "057800662ad298bd5cdd2c1ed3f7a2fc8cdb9222e7fdb80b86ecf56ab481ad1a"
+  },
+  "26": {
+   "file": "visual_26.obj",
+   "source_mesh": 26,
+   "name": "黑_士_ring",
+   "rgba": [
+    0.6078431372549019,
+    0.4196078431372549,
+    0.20392156862745098,
+    1.0
+   ],
+   "vertices": 1264,
+   "triangles": 2528,
+   "bounds_m": [
+    [
+     -0.020823524475097655,
+     -0.020835880279541016,
+     -0.0072800000011920924
+    ],
+    [
+     0.02084000015258789,
+     0.020835880279541016,
+     0.007279999732971191
+    ]
+   ],
+   "sha256": "8126a0c0573e0bfaefacd69d8b8ff0f528fb5cfb439de6bc817a86f7c76b027c"
+  },
+  "27": {
+   "file": "visual_27.obj",
+   "source_mesh": 27,
+   "name": "黑_象_wood",
+   "rgba": [
+    0.9058823529411765,
+    0.7803921568627451,
+    0.5607843137254902,
+    1.0
+   ],
+   "vertices": 13647,
+   "triangles": 27290,
+   "bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "sha256": "c358d116d9f1372f9d64a749263b7a1fe61c7db75a51c2a1fc3a928f1fb8e71d"
+  },
+  "28": {
+   "file": "visual_28.obj",
+   "source_mesh": 28,
+   "name": "黑_象_ink",
+   "rgba": [
+    0.11764705882352941,
+    0.11372549019607843,
+    0.10588235294117647,
+    1.0
+   ],
+   "vertices": 4463,
+   "triangles": 8934,
+   "bounds_m": [
+    [
+     -0.010034770011901856,
+     -0.011492709159851074,
+     -0.006980000019073486
+    ],
+    [
+     0.010034770011901856,
+     0.011492709159851074,
+     0.006979999542236329
+    ]
+   ],
+   "sha256": "0529f25b79f4aedbf226a173f38f78eae7b52099018d7892d5e4743ff6de6068"
+  },
+  "29": {
+   "file": "visual_29.obj",
+   "source_mesh": 29,
+   "name": "黑_象_ring",
+   "rgba": [
+    0.6078431372549019,
+    0.4196078431372549,
+    0.20392156862745098,
+    1.0
+   ],
+   "vertices": 1264,
+   "triangles": 2528,
+   "bounds_m": [
+    [
+     -0.020823524475097655,
+     -0.020835880279541016,
+     -0.0072800000011920924
+    ],
+    [
+     0.02084000015258789,
+     0.020835880279541016,
+     0.007279999732971191
+    ]
+   ],
+   "sha256": "8126a0c0573e0bfaefacd69d8b8ff0f528fb5cfb439de6bc817a86f7c76b027c"
+  },
+  "30": {
+   "file": "visual_30.obj",
+   "source_mesh": 30,
+   "name": "黑_車_wood",
+   "rgba": [
+    0.9058823529411765,
+    0.7803921568627451,
+    0.5607843137254902,
+    1.0
+   ],
+   "vertices": 11198,
+   "triangles": 22392,
+   "bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "sha256": "6088795a6e53d2adfa24a9305eefc546e8f6ecc776a9f237456d3fb62b738dd5"
+  },
+  "31": {
+   "file": "visual_31.obj",
+   "source_mesh": 31,
+   "name": "黑_車_ink",
+   "rgba": [
+    0.11764705882352941,
+    0.11372549019607843,
+    0.10588235294117647,
+    1.0
+   ],
+   "vertices": 2918,
+   "triangles": 5860,
+   "bounds_m": [
+    [
+     -0.011838472366333008,
+     -0.012981316566467286,
+     -0.006980000019073486
+    ],
+    [
+     0.011838472366333008,
+     0.012981316566467286,
+     0.006979999542236329
+    ]
+   ],
+   "sha256": "37d70b0f17f4ba2c953555d064f520492523869c35ebe24827a791fdfb57077f"
+  },
+  "32": {
+   "file": "visual_32.obj",
+   "source_mesh": 32,
+   "name": "黑_車_ring",
+   "rgba": [
+    0.6078431372549019,
+    0.4196078431372549,
+    0.20392156862745098,
+    1.0
+   ],
+   "vertices": 1264,
+   "triangles": 2528,
+   "bounds_m": [
+    [
+     -0.020823524475097655,
+     -0.020835880279541016,
+     -0.0072800000011920924
+    ],
+    [
+     0.02084000015258789,
+     0.020835880279541016,
+     0.007279999732971191
+    ]
+   ],
+   "sha256": "8126a0c0573e0bfaefacd69d8b8ff0f528fb5cfb439de6bc817a86f7c76b027c"
+  },
+  "33": {
+   "file": "visual_33.obj",
+   "source_mesh": 33,
+   "name": "黑_馬_wood",
+   "rgba": [
+    0.9058823529411765,
+    0.7803921568627451,
+    0.5607843137254902,
+    1.0
+   ],
+   "vertices": 12874,
+   "triangles": 25744,
+   "bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "sha256": "fa170c9e2ecd6cb326fea1428b3fc43690e2dc7e6030bb40216fbf0054978d14"
+  },
+  "34": {
+   "file": "visual_34.obj",
+   "source_mesh": 34,
+   "name": "黑_馬_ink",
+   "rgba": [
+    0.11764705882352941,
+    0.11372549019607843,
+    0.10588235294117647,
+    1.0
+   ],
+   "vertices": 4280,
+   "triangles": 8544,
+   "bounds_m": [
+    [
+     -0.010885088920593262,
+     -0.011726523399353027,
+     -0.006980000019073486
+    ],
+    [
+     0.010885088920593262,
+     0.011726523399353027,
+     0.006979999542236329
+    ]
+   ],
+   "sha256": "f931a794cb884bc065b88c6c5866687f83ddb4553707966730289692d4e43067"
+  },
+  "35": {
+   "file": "visual_35.obj",
+   "source_mesh": 35,
+   "name": "黑_馬_ring",
+   "rgba": [
+    0.6078431372549019,
+    0.4196078431372549,
+    0.20392156862745098,
+    1.0
+   ],
+   "vertices": 1264,
+   "triangles": 2528,
+   "bounds_m": [
+    [
+     -0.020823524475097655,
+     -0.020835880279541016,
+     -0.0072800000011920924
+    ],
+    [
+     0.02084000015258789,
+     0.020835880279541016,
+     0.007279999732971191
+    ]
+   ],
+   "sha256": "8126a0c0573e0bfaefacd69d8b8ff0f528fb5cfb439de6bc817a86f7c76b027c"
+  },
+  "36": {
+   "file": "visual_36.obj",
+   "source_mesh": 36,
+   "name": "黑_炮_wood",
+   "rgba": [
+    0.9058823529411765,
+    0.7803921568627451,
+    0.5607843137254902,
+    1.0
+   ],
+   "vertices": 13537,
+   "triangles": 27070,
+   "bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "sha256": "1777e6af118a43744f8608524182fd22e59695982e99c9cc2bc3f2531dd756c7"
+  },
+  "37": {
+   "file": "visual_37.obj",
+   "source_mesh": 37,
+   "name": "黑_炮_ink",
+   "rgba": [
+    0.11764705882352941,
+    0.11372549019607843,
+    0.10588235294117647,
+    1.0
+   ],
+   "vertices": 4673,
+   "triangles": 9322,
+   "bounds_m": [
+    [
+     -0.012392294883728028,
+     -0.011627885818481445,
+     -0.006980000019073486
+    ],
+    [
+     0.012392294883728028,
+     0.011627885818481445,
+     0.006979999542236329
+    ]
+   ],
+   "sha256": "53d7292fade75e9d562e1e06253753d987bad0037a6aa87d91aa720ea37774c4"
+  },
+  "38": {
+   "file": "visual_38.obj",
+   "source_mesh": 38,
+   "name": "黑_炮_ring",
+   "rgba": [
+    0.6078431372549019,
+    0.4196078431372549,
+    0.20392156862745098,
+    1.0
+   ],
+   "vertices": 1264,
+   "triangles": 2528,
+   "bounds_m": [
+    [
+     -0.020823524475097655,
+     -0.020835880279541016,
+     -0.0072800000011920924
+    ],
+    [
+     0.02084000015258789,
+     0.020835880279541016,
+     0.007279999732971191
+    ]
+   ],
+   "sha256": "8126a0c0573e0bfaefacd69d8b8ff0f528fb5cfb439de6bc817a86f7c76b027c"
+  },
+  "39": {
+   "file": "visual_39.obj",
+   "source_mesh": 39,
+   "name": "黑_卒_wood",
+   "rgba": [
+    0.9058823529411765,
+    0.7803921568627451,
+    0.5607843137254902,
+    1.0
+   ],
+   "vertices": 11780,
+   "triangles": 23556,
+   "bounds_m": [
+    [
+     -0.023489482879638673,
+     -0.023497369766235354,
+     -0.0075
+    ],
+    [
+     0.0235,
+     0.023497369766235354,
+     0.0075
+    ]
+   ],
+   "sha256": "101456daa0f15addf09daee9537df0316574adc9732a14fc73c522308d8e9309"
+  },
+  "40": {
+   "file": "visual_40.obj",
+   "source_mesh": 40,
+   "name": "黑_卒_ink",
+   "rgba": [
+    0.11764705882352941,
+    0.11372549019607843,
+    0.10588235294117647,
+    1.0
+   ],
+   "vertices": 3367,
+   "triangles": 6702,
+   "bounds_m": [
+    [
+     -0.011667206764221191,
+     -0.012669013977050782,
+     -0.006980000019073486
+    ],
+    [
+     0.011667206764221191,
+     0.012669013977050782,
+     0.006979999542236329
+    ]
+   ],
+   "sha256": "a4a195667e97b228e802f9c1aeae045091ea79c2236e50245fb7a4cf55d09788"
+  },
+  "41": {
+   "file": "visual_41.obj",
+   "source_mesh": 41,
+   "name": "黑_卒_ring",
+   "rgba": [
+    0.6078431372549019,
+    0.4196078431372549,
+    0.20392156862745098,
+    1.0
+   ],
+   "vertices": 1264,
+   "triangles": 2528,
+   "bounds_m": [
+    [
+     -0.020823524475097655,
+     -0.020835880279541016,
+     -0.0072800000011920924
+    ],
+    [
+     0.02084000015258789,
+     0.020835880279541016,
+     0.007279999732971191
+    ]
+   ],
+   "sha256": "8126a0c0573e0bfaefacd69d8b8ff0f528fb5cfb439de6bc817a86f7c76b027c"
+  }
+ }
+}
