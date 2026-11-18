@@ -37,10 +37,10 @@ class PushEnd:
 class Brain:
  def __init__(self,solver):
   self.slot_views=[];self.recounts=[];self.cargo=set();self.review={};self.review_log=[];self.credited=False
-  self.counts=[0]*8;self.slot=None;self.s=solver;self.cam=Camera(c,sim/'resources/detector');self.db={};self.seq=[];self.goal=None;self.load=0;self.prefix=0.;self.ref=-1;self.odo=0.;self.tick=.5;self.prev=None;self.hold=None;self.cover=np.zeros(len(grid),bool);self.plans=0;self.boxes=[];self.scan=None;self.phase=None;self.dock_y=None;self.release=None;self.end=PushEnd();self.end.reason=None
+  self.counts=[0]*8;self.slot=None;self.s=solver;self.cam=Camera(c,sim/'resources/detector');self.db={};self.seq=[];self.goal=None;self.load=0;self.prefix=0.;self.ref=-1;self.odo=0.;self.next_plan=0.;self.map_events=[];self.prev=None;self.hold=None;self.cover=np.zeros(len(grid),bool);self.plans=0;self.boxes=[];self.scan=None;self.phase=None;self.dock_y=None;self.release=None;self.end=PushEnd();self.end.reason=None
  def perceive(self,rgb,p,h,t):
   mat,tf=prepare(rgb[:,:,::-1],(416,320));raw,_=self.cam.detector.forward(mat);self.boxes=postprocess(raw,tf);used=set();cc=c['camera'];rot=np.array([[math.cos(h),-math.sin(h)],[math.sin(h),math.cos(h)]]);lens=p+rot@cc['camera_base_position_m'][:2];pose=np.r_[p,h];self.cover|=self.visible(p,h)
-  slot_centers=[]
+  measurements=[];review_used=set();slot_centers=[]
   for b in sorted(self.boxes,key=lambda b:-b['confidence']):
    x,y,u,v=b['box'];
    if min(x,y)<1 or u>638 or v>478:continue
@@ -52,14 +52,26 @@ class Brain:
     if self.phase=='BACK' and q[0]>=0 and abs(q[1]-CENTERS[self.slot])<=(1.57-.42)/16 and all(np.linalg.norm(q-z)>.028 for z in slot_centers):slot_centers.append(q)
     continue
    if not(.023<q[0]<2.98 and .023<q[1]<1.977 and np.linalg.norm(q-p)<=1.5):continue
-   if self.phase=='BACK':
-    # Use only fresh retreat frames. Defer any cargo/accounting change until braking ends.
-    self.observe_retreat(q,t,used)
-    continue
-   near=[(np.linalg.norm(q-v['p']),k) for k,v in self.db.items() if k not in used and (not v['taken'] or t-v['t']<2)]
-   d,k=min(near,default=(99,-1));
-   if d>.085:k=len(self.db);self.db[k]=dict(p=q,hits=0,t=t,taken=False)
-   v=self.db[k];v.update(p=.65*v['p']+.35*q,hits=v['hits']+1,t=t);used.add(k)
+   if self.phase=='BACK':self.observe_retreat(q,t,review_used)
+   measurements.append(q)
+  # One image, at most one observation per track. Prefer the closest pair globally.
+  edges=sorted((np.linalg.norm(q-v['p']),i,k) for i,q in enumerate(measurements) for k,v in self.db.items()
+               if not v.get('cleared') and (not v['taken'] or (self.phase!='BACK' and t-v['t']<2)))
+  matched=set()
+  for d,i,k in edges:
+   if d>.085:break
+   if k in used or i in matched:continue
+   q=measurements[i];v=self.db[k]
+   v.update(p=q.copy(),hits=v['hits']+1,t=t,miss=0);used.add(k);matched.add(i)
+  for i,q in enumerate(measurements):
+   if i not in matched:
+    k=len(self.db);self.db[k]=dict(p=q.copy(),hits=1,t=t,taken=False,miss=0);used.add(k)
+  for k,v in self.db.items():
+   if k in used or v['taken'] or v.get('cleared'):continue
+   blank=self.sees_empty_floor(rgb,v['p'],p,rot)
+   v['miss']=v.get('miss',0)+1 if blank else 0
+   if v['miss']>=2:
+    v['cleared']=True;self.map_events.append(dict(t=t,track=k,xy=v['p'].tolist(),reason='visible empty floor'))
   if self.phase=='BACK' and p[0]>=ZONE+SAFE+.025:
    # Only recount a fully framed slot: project its four corners into the actual image.
    half=(1.57-.42)/16;yy=CENTERS[self.slot]
@@ -69,6 +81,21 @@ class Brain:
    uv,_=cv2.projectPoints(xyz,np.zeros(3),np.zeros(3),np.asarray(cc['K']),np.asarray(cc['opencv_distortion']))
    uv=uv.reshape(-1,2)
    if np.all(xyz[:,2]>0) and np.all((uv>[12,12])&(uv<[627,467])):self.slot_views.append((t,len(slot_centers)))
+ def sees_empty_floor(self,rgb,q,p,rot):
+  # Verify the predicted footprint is visible AND looks like bare white field.
+  local=(q-p)@rot
+  if not (.24<local[0]<1. and np.linalg.norm(local)<1.):return False
+  cc=c['camera'];angles=np.arange(8)*math.pi/4
+  ring=.0235*np.column_stack([np.cos(angles),np.sin(angles)])+local
+  pts=np.vstack([np.column_stack([ring,np.full(8,z)]) for z in (0,.015)])
+  rays=(pts-cc['camera_base_position_m'])@np.asarray(cc['R_ground_optical'])
+  if min(rays[:,2])<=0:return False
+  uv=cv2.projectPoints(rays,np.zeros(3),np.zeros(3),np.asarray(cc['K']),np.asarray(cc['opencv_distortion']))[0].reshape(-1,2)
+  x,y=np.floor(uv.min(axis=0)).astype(int);u,v=np.ceil(uv.max(axis=0)).astype(int)
+  if x<5 or y<5 or u>=635 or v>=475:return False
+  if any(x<b['box'][2] and u>b['box'][0] and y<b['box'][3] and v>b['box'][1] for b in self.boxes):return False
+  patch=rgb[y:v+1,x:u+1].astype(float)
+  return np.mean((patch.min(2)>170)&(np.ptp(patch,axis=2)<32))>.95
  def observe_retreat(self,q,t,used):
   nearby=sorted((np.linalg.norm(q-v['p']),k) for k,v in self.review.items() if k not in used)
   if nearby and nearby[0][0]<.035:
@@ -81,24 +108,16 @@ class Brain:
  def finish_review(self,t):
   observations=[v['p'] for v in self.review.values() if v['hits']>=2 and t-v['t']<.61]
   # Match against the pre-review map. A crowded match cannot establish cargo identity.
-  snapshot={k:v['p'].copy() for k,v in self.db.items()}
-  assigned=set()
+  snapshot=self.before_retreat
   for q in observations:
-   near=sorted((np.linalg.norm(q-p),k) for k,p in snapshot.items() if np.linalg.norm(q-p)<.065)
-   unique=(len(near)==1 and near[0][0]<.035 and sum(np.linalg.norm(z-snapshot[near[0][1]])<.065 for z in observations)==1)
+   near=[k for k,(xy,_) in snapshot.items() if np.linalg.norm(q-xy)<.065]
    debit=False
-   if unique:
-    k=near[0][1];v=self.db[k]
+   if len(near)==1 and near[0] in self.cargo and self.credited:
+    k=near[0];xy,last=snapshot[k]
     outside=math.hypot(max(0.,q[0]-ZONE),max(0.,.42-q[1],q[1]-1.57))
-    if k in self.cargo and self.credited and outside>.015 and self.hold-self.db[k]['t']<1.0:
+    if np.linalg.norm(q-xy)<.035 and self.hold-last<1. and outside>.015 and sum(np.linalg.norm(z-xy)<.065 for z in observations)==1:
      self.counts[self.slot]-=1;debit=True
-   else:
-    # Reuse a nearby available track if possible; never debit an ambiguous observation.
-    free=[k for _,k in near if k not in assigned and not self.db[k]['taken']]
-    k=free[0] if free else len(self.db)
-   assigned.add(k)
-   self.db[k]=dict(p=q.copy(),hits=2,t=t,taken=False)
-   self.review_log.append(dict(t=t,xy=q.tolist(),track=k,slot=self.slot,debit=debit))
+   self.review_log.append(dict(t=t,xy=q.tolist(),slot=self.slot,debit=debit))
   counts=[n for ts,n in self.slot_views]
   supported=[min(counts[i:i+3]) for i in range(len(counts)-2)]
   if self.credited and supported and max(supported)>0:
@@ -109,7 +128,7 @@ class Brain:
  def visible(self,p,h):
   d=grid-p;co,si=math.cos(h),math.sin(h);a,b=d.T;cc=c['camera'];q=(np.column_stack((co*a+si*b,-si*a+co*b,np.full(len(a),.015)))-cc['camera_base_position_m'])@np.array(cc['R_ground_optical']);z=q[:,2];x,y=(q[:,:2]/np.maximum(.01,z[:,None])).T;r=x*x+y*y;k,l=cc['opencv_distortion'][:2];v=1+k*r+l*r*r;return (z>0)&(abs(x*v*cc['focal_px'])<319.5)&(abs(y*v*cc['focal_px'])<239.5)&(np.linalg.norm(d,axis=1)<=1.5)
  def mapped(self,t):
-  return [k for k,v in self.db.items() if v['hits']>=2 and not v['taken'] and t-v['t']<40]
+  return [k for k,v in self.db.items() if v['hits']>=2 and not v.get('cleared') and not v['taken'] and t-v['t']<40]
  def candidates(self,t):
   return [k for k in self.mapped(t) if clearance(self.db[k]['p'])>.04]
  def act(self,o):
@@ -119,12 +138,12 @@ class Brain:
    q,a=self.prev;ds=np.linalg.norm(p-q);self.speed=ds/o["dt_s"];self.rate=math.degrees(wrap(h-a))/o["dt_s"];self.odo+=ds;self.prefix+=ds+.35/(math.pi/2)*abs(wrap(h-a))
   self.prev=p,h
   if abs(t-o['image_time_s'])<1e-6:self.perceive(o['rgb'],p,h,t)
-  ids=self.candidates(t);expired=self.odo>=self.tick
-  if expired:self.tick+=.5
+  ids=self.candidates(t);expired=t+1e-8>=self.next_plan
   if self.phase=='HOLD':
    if t-self.hold<.5:return self.cmd('STOP / '+self.end.reason,0,0)
    self.credited=self.end.back<=ZONE-LINE_MARGIN
    if self.credited:self.counts[self.slot]+=self.load
+   self.before_retreat={k:(v['p'].copy(),v['t']) for k,v in self.db.items() if not v.get('cleared')}
    self.phase='BACK';self.release=None
   if self.phase=='BACK':
    if p[0]<ZONE+SAFE+.225:self.release=None;return self.cmd('CLEAR GOAL / REVERSE',-.18,0)
@@ -144,12 +163,16 @@ class Brain:
    ids=sorted(ids,key=lambda k:tuple(self.db[k]['p']))[:60];coords=[p,*[self.db[k]['p'] for k in ids]]
    decision=plan(self.s,self.counts,coords,h,self.load,self.prefix,self.ref)
    if decision is None:return self.cmd('ALL GOAL SLOTS FULL',0,0)
-   self.slot,self.ref,route=decision;self.seq=[ids[j] for j in route];self.goal=np.array([0.,CENTERS[self.slot]]);self.plans+=1;self.scan=None
+   self.next_plan=t+1.;self.slot,self.ref,route=decision;self.seq=[ids[j] for j in route];self.goal=np.array([0.,CENTERS[self.slot]]);self.plans+=1;self.scan=None
   if self.goal is None:
    if self.scan is None or abs(wrap(self.scan-h))<.08:
     vals=[(np.count_nonzero(self.visible(p,a)&~self.cover)/(1+abs(wrap(a-h))),a) for a in np.arange(24)*math.pi/12];gain,a=max(vals);self.scan=a if gain>=5 else None
    if self.scan is not None:return self.cmd('SCAN / ROTATE',0,np.clip(3*wrap(self.scan-h),-1.55,1.55))
    candidates=grid[(~self.cover)&(grid[:,0]>.18)&(grid[:,0]<2.82)&(grid[:,1]>.18)&(grid[:,1]<1.82)];dst=min(candidates,key=lambda q:np.linalg.norm(q-p)) if len(candidates) else np.array([1.5,1.]);return self.follow(p,h,dst,'SEARCH')
+  if any(self.db[k].get("cleared") for k in self.seq):
+   # Do not drive to a location already verified empty between two planner ticks.
+   if not ids and not self.load:self.seq=[];self.goal=None
+   return self.cmd("MAP UPDATED / WAIT",0,0)
   if self.seq:
    k=self.seq[0];dst=self.db[k]['p'];
    if np.linalg.norm(p-dst)<.095:
@@ -240,5 +263,5 @@ def main():
      audit.append(dict(t=o['time_s'],state=b.state,phase=b.phase,turn=is_turn,clear=clearance(b.pos),pwm=a['motor_pwm'],finish=b.end.reason,blade_back=getattr(b.end,'back',None),wall=getattr(b.end,'wall',None)))
    finally:enc.stdin.close();solver.stdin.close();env.close()
    if enc.wait():raise RuntimeError('video encoding failed')
- (reports/'运行记录.json').write_text(json.dumps(dict(seed=board['seed'],board=board,retreat_reviews=b.review_log,visual_recounts=b.recounts,scoring='center_inside_immediate',checks=checks,breakdown=breakdown,audit=audit,plate_radius=Rplate,safe_x=ZONE+SAFE+.025,result=ref.finish() if ref.done else None,frames=log),ensure_ascii=False));print('DONE',log[-1])
+ (reports/'运行记录.json').write_text(json.dumps(dict(seed=board['seed'],board=board,map_events=b.map_events,retreat_reviews=b.review_log,visual_recounts=b.recounts,scoring='center_inside_immediate',checks=checks,breakdown=breakdown,audit=audit,plate_radius=Rplate,safe_x=ZONE+SAFE+.025,result=ref.finish() if ref.done else None,frames=log),ensure_ascii=False));print('DONE',log[-1])
 if __name__=='__main__':main()
