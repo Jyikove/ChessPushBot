@@ -8,7 +8,8 @@ using namespace std;
 struct Point { double x,y; };
 double dist(Point a,Point b){return hypot(a.x-b.x,a.y-b.y);}
 int main(int argc,char** argv){
-    const bool turns=argc>1 && string(argv[1])=="turns";
+    const bool delivery=argc>1 && string(argv[1])=="delivery";
+    const bool turns=delivery || (argc>1 && string(argv[1])=="turns");
     int n,target; double A,gx,lo,hi; cout<<setprecision(17);
     while(cin>>n>>target>>A>>gx>>lo>>hi){
         int carried=0; double prefix_before=0,reference=-1;
@@ -24,7 +25,9 @@ int main(int argc,char** argv){
             sort(order[i].begin(),order[i].end(),[&](int a,int b){return legs[i][a]<legs[i][b];});
         }
         auto heading=[&](int i,Point p){return atan2(p.y-pt[i].y,p.x-pt[i].x);};
-        auto finish=[&](int i,double h){return ends[i]+(turns && ends[i]>1e-10?bend(h,heading(i,{gx,clamp(pt[i].y,lo,hi)})):0);};
+        vector<double> first(n+1), tail(n+1);
+        if(delivery) for(int i=0;i<=n;i++) cin>>first[i]>>tail[i];
+        auto finish=[&](int i,double h){if(delivery)return tail[i]+bend(h,first[i]);return ends[i]+(turns && ends[i]>1e-10?bend(h,heading(i,{gx,clamp(pt[i].y,lo,hi)})):0);};
         for(int i=1;i<=n;i++){double h=legs[0][i]>1e-10?heading(0,pt[i]):yaw;single=min(single,legs[0][i]+(turns?bend(yaw,h):0)+finish(i,h));lastleg=min(lastleg,ends[i]);}
         if(reference>=0)single=reference;else if(carried)single=finish(0,yaw);
         vector<double> rewards(n+carried+1,0.);

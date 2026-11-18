@@ -1,7 +1,7 @@
 from pathlib import Path
 import os,sys,json,subprocess,tempfile,math,itertools
 os.environ.setdefault('MUJOCO_GL','glfw');sim=Path(__file__).resolve().parent;sys.path.insert(0,str(sim/'runtime'));import numpy as np,cv2,mujoco
-from goal_slots import CENTERS, plan
+from goal_slots import CENTERS, plan, delivery_path
 from physics import Physics
 from referee import Referee
 from camera import Camera, prepare,postprocess
@@ -19,13 +19,13 @@ reports=sim.parent.parent/'三维仿真/报告'/f"sim-seed-{board['seed']}"
 out=sim.parent.parent/'三维仿真/视频'/f"sim-seed-{board['seed']}";c=dict(camera=json.loads((sim/'resources/camera/camera_profile.json').read_text()),goals=[[[0,.42],[.11,.42],[.11,1.57],[0,1.57]]]);c['goals']=c['goals'][:1];grid=np.array([(x/10+.05,y/10+.05) for x in range(30) for y in range(20)])
 # Enclose tilted chess cylinders and every pusher collision primitive by spheres.
 cad=json.loads((sim.parent/'assets/robot/simulation.json').read_text())
-Rplate=max([math.dist(q,(0,0,0)) for part in cad['convex_parts'] for q in part['vertices']]+[math.hypot(*cap['position'][:2])+cap['radius']+abs(cap['position'][2])+cap['half_height'] for cap in cad['tip_caps']]);Rpiece=math.hypot(.0235,.0075);ZONE=.11;SWEEP=Rplate+2*Rpiece; SAFE=SWEEP+.035;GATE=ZONE+SAFE+.075
+Rplate=max([math.dist(q,(0,0,0)) for part in cad['convex_parts'] for q in part['vertices']]+[math.hypot(*cap['position'][:2])+cap['radius']+abs(cap['position'][2])+cap['half_height'] for cap in cad['tip_caps']]);Rpiece=math.hypot(.0235,.0075);ZONE=.11;SWEEP=Rplate+2*Rpiece; SAFE=SWEEP+.035
 # Even if only the rim touches the goal, the opposite rim can project a full diameter outside.
 def clearance(p):return math.hypot(max(0,p[0]-ZONE,-p[0]),max(0,.42-p[1],p[1]-1.57))-SWEEP
 # Wall-normal extent of the working blade, including its rounded tips.
 blade=np.array([q[:2] for a in cad['convex_parts'] if a['part']=='blade' for q in a['vertices']]);tips=cad['tip_caps']; STOPPING=.018; WALL_BUFFER=.022; LINE_MARGIN=.003
 class PushEnd:
- def begin(self,t,p):self.start=t;self.window=[(t,p[0])];self.deadline=t+min(5.,(max(0,p[0]-.195)/.085)+1.);self.reason=None
+ def begin(self,t,p):self.start=t;self.window=[(t,p[0])];self.deadline=t+(max(0,p[0]-.195)/.085)+1.;self.reason=None
  def check(self,t,p,h):
   normal=np.array([math.cos(h),-math.sin(h)]);xs=p[0]+blade@normal;self.wall=min(min(xs),min(p[0]+np.dot(cap['position'][:2],normal)-cap['radius'] for cap in tips));self.back=max(xs);self.window.append((t,p[0]));self.window=[v for v in self.window if t-v[0]<=.81]
   if self.wall<=WALL_BUFFER+STOPPING:self.reason='WALL BUFFER'
@@ -37,7 +37,7 @@ class PushEnd:
 class Brain:
  def __init__(self,solver):
   self.slot_views=[];self.recounts=[];self.cargo=set();self.review={};self.review_log=[];self.credited=False
-  self.counts=[0]*8;self.slot=None;self.s=solver;self.cam=Camera(c,sim/'resources/detector');self.db={};self.seq=[];self.goal=None;self.load=0;self.prefix=0.;self.ref=-1;self.odo=0.;self.next_plan=0.;self.map_events=[];self.prev=None;self.hold=None;self.cover=np.zeros(len(grid),bool);self.plans=0;self.boxes=[];self.scan=None;self.phase=None;self.dock_y=None;self.release=None;self.end=PushEnd();self.end.reason=None
+  self.counts=[0]*8;self.slot=None;self.s=solver;self.cam=Camera(c,sim/'resources/detector');self.db={};self.seq=[];self.goal=None;self.load=0;self.prefix=0.;self.ref=-1;self.odo=0.;self.next_plan=0.;self.map_events=[];self.prev=None;self.hold=None;self.cover=np.zeros(len(grid),bool);self.plans=0;self.boxes=[];self.scan=None;self.phase=None;self.delivery=[];self.release=None;self.end=PushEnd();self.end.reason=None
  def perceive(self,rgb,p,h,t):
   mat,tf=prepare(rgb[:,:,::-1],(416,320));raw,_=self.cam.detector.forward(mat);self.boxes=postprocess(raw,tf);used=set();cc=c['camera'];rot=np.array([[math.cos(h),-math.sin(h)],[math.sin(h),math.cos(h)]]);lens=p+rot@cc['camera_base_position_m'][:2];pose=np.r_[p,h];self.cover|=self.visible(p,h)
   measurements=[];inside=set();review_used=set();slot_centers=[]
@@ -162,17 +162,13 @@ class Brain:
    if t-self.release<.4:return self.cmd('CLEAR GOAL / BRAKE',0,0)
    self.finish_review(t)
    ids=self.candidates(t)
-   self.phase=None;self.goal=None;self.load=0;self.prefix=0.;self.ref=-1;self.hold=None
-  if self.phase=='RESTAGE':
-   # Already outside the protected zone. Move to a different staging point, preserving cargo.
-   if t-self.restart<.4:return self.cmd('REALIGN / BRAKE',0,0)
-   self.phase='STAGE'
+   self.delivery=[];self.phase=None;self.goal=None;self.load=0;self.prefix=0.;self.ref=-1;self.hold=None
   if self.phase=='IN':
    if self.end.check(t,p,h):self.phase='HOLD';self.hold=t;return self.cmd('STOP / '+self.end.reason,0,0)
    return self.cmd('PUSH TO GOAL / STRAIGHT',.08 if self.end.back<ZONE+.055 else .155,0)
   if (ids or self.load) and (self.goal is None or expired) and self.phase is None:
    ids=sorted(ids,key=lambda k:tuple(self.db[k]['p']))[:60];coords=[p,*[self.db[k]['p'] for k in ids]]
-   decision=plan(self.s,self.counts,coords,h,self.load,self.prefix,self.ref)
+   decision=plan(self.s,self.counts,coords,h,self.load,self.prefix,self.ref,normal_entry=True)
    if decision is None:return self.cmd('ALL GOAL SLOTS FULL',0,0)
    self.next_plan=t+1.;self.slot,self.ref,route=decision;self.seq=[ids[j] for j in route];self.goal=np.array([0.,CENTERS[self.slot]]);self.plans+=1;self.scan=None
   if self.goal is None:
@@ -187,28 +183,23 @@ class Brain:
   if self.seq:
    k=self.seq[0];dst=self.db[k]['p'];
    if np.linalg.norm(p-dst)<.095:
-    self.seq.pop(0);self.db[k]['taken']=True;self.cargo.add(k);self.load+=1;return self.cmd('PICKUP / ESTIMATE',0,0)
+    self.seq.pop(0);self.db[k]['taken']=True;self.cargo.add(k);self.load+=1
+    if not self.seq:self.phase='DELIVER'
+    return self.cmd('PICKUP / ESTIMATE',0,0)
    return self.follow(p,h,dst,'COLLECT')
-  # Score line belongs to the pieces. Keep the vehicle base reachable inside the wall.
-  if self.phase is None:self.phase='STAGE';self.dock_y=np.clip(self.goal[1],.48,1.51)
-  gate=np.array([GATE,self.dock_y]);self.target=gate
-  if self.phase=='STAGE' and np.linalg.norm(p-gate)>.035:return self.follow(p,h,gate,'GOAL APPROACH')
+  if not self.delivery:
+   self.delivery=[np.array(q) for q in delivery_path(p,CENTERS[self.slot])]
+  self.phase='DELIVER';self.target=self.delivery[0]
+  if len(self.delivery)>1:
+   if np.linalg.norm(p-self.target)>.023:return self.follow(p,h,self.target,'DELIVERY LINE')
+   self.delivery.pop(0);self.target=self.delivery[0]
   err=wrap(math.pi-h)
-  if self.phase!='ALIGN':
-   self.phase='ALIGN';self.align_start=t;self.improved=t;self.best_err=abs(err);self.aligned=None
-  if abs(err)<self.best_err-.015:self.best_err=abs(err);self.improved=t
-  # Project the push axis to the goal line. Allow at most 25 mm of sideways drift
-  # and keep the predicted piece centre one radius plus 10 mm from either end.
-  dx=max(0.,p[0]-ZONE);side=dx*math.tan(err) if abs(err)<.18 else math.inf
-  feasible=abs(err)<.16 and abs(side)<=.025 and abs(p[1]+side-CENTERS[self.slot])<=(1.57-.42)/16-Rpiece-.01
-  if not feasible:
-   self.aligned=None
-   if t-self.improved>1.5 or t-self.align_start>6.:
-    self.phase='RESTAGE';self.restart=t;self.dock_y=CENTERS[self.slot]+(.015 if p[1]<CENTERS[self.slot] else -.015);return self.cmd('REALIGN / BRAKE',0,0)
-   return self.cmd('GOAL ALIGN / TURN',0,math.copysign(np.clip(2.6*abs(err),.42,1.4),err))
-  if self.aligned is None:self.aligned=t
-  if t-self.aligned<.4:return self.cmd('GOAL ALIGN / BRAKE',0,0)
-  self.aligned=None;self.phase='IN';self.end.begin(t,p);return self.cmd('PUSH TO GOAL / STRAIGHT',.155,0)
+  if abs(err)>.035:return self.cmd('ENTRY ALIGN / TURN',0,np.clip(2.6*err,-1.4,1.4))
+  if abs(self.rate)>6:return self.cmd('ENTRY ALIGN / BRAKE',0,0)
+  self.phase='IN';self.end.begin(t,p)
+  if self.end.check(t,p,h):
+   self.phase='HOLD';self.hold=t;return self.cmd('STOP / '+self.end.reason,0,0)
+  return self.cmd('PUSH TO GOAL / STRAIGHT',.155,0)
  def follow(self,p,h,dst,label):
   self.target=dst;d=dst-p;a=wrap(math.atan2(d[1],d[0])-h);return self.cmd(label+' / TURN',0,np.clip(3*a,-1.55,1.55)) if abs(a)>.12 else self.cmd(label+' / DRIVE',np.clip(2*np.linalg.norm(d),.075,.30),0)
  def cmd(self,state,v,w):
@@ -233,7 +224,8 @@ def compose(o,top,b,ref,a):
   if b.goal is not None and j==b.slot:col=(60,210,255)
   cv2.line(im,xy([0,y-.065]),xy([0,y+.065]),col,6)
   text(im,str(b.counts[j]),xy([-.13,y-.025]),.43,col)
- if b.goal is not None:path.append(b.goal)
+ if b.goal is not None and b.phase not in ('BACK','HOLD'):
+  path.extend(b.delivery or delivery_path(path[-1],CENTERS[b.slot]))
  if len(path)>1:cv2.polylines(im,[np.array(list(map(xy,path)))],False,(82,187,250),2)
  ids=b.mapped(t)
  for k in ids:cv2.circle(im,xy(b.db[k]['p']),4,(130,228,160),-1)
@@ -259,7 +251,7 @@ def main():
  ref.update=audited
  with tempfile.TemporaryDirectory() as tmp:
   exe=Path(tmp)/'solver';subprocess.run(['c++','-O3','-std=c++17',sim/'balance_solver.cpp','-o',exe],check=True)
-  with subprocess.Popen([exe,'turns'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,text=True) as solver,subprocess.Popen(['ffmpeg','-loglevel','error','-y','-f','rawvideo','-pix_fmt','bgr24','-s','1280x900','-r','5','-i','-','-c:v','libx264','-preset','veryfast','-crf','20','-pix_fmt','yuv420p','-movflags','+faststart',str(vid)],stdin=subprocess.PIPE) as enc:
+  with subprocess.Popen([exe,'delivery'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,text=True) as solver,subprocess.Popen(['ffmpeg','-loglevel','error','-y','-f','rawvideo','-pix_fmt','bgr24','-s','1280x900','-r','5','-i','-','-c:v','libx264','-preset','veryfast','-crf','20','-pix_fmt','yuv420p','-movflags','+faststart',str(vid)],stdin=subprocess.PIPE) as enc:
    b=Brain(solver)
    try:
     for k in range(prefix*10+1):
