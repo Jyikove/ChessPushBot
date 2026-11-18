@@ -241,7 +241,7 @@ def compose(o,top,b,ref,a):
  return im
 
 def main():
- out.mkdir(parents=True,exist_ok=True);reports.mkdir(parents=True,exist_ok=True);vid=out/'四视图.mp4';log=[];audit=[];prefix=int(os.environ.get('TEST_SECONDS','120'));positions=np.array([[*p,.0076] for p in board['points']]);env=Physics(c,positions,car=(*board['start'],.001));ref=Referee(c['goals'],32,center_only=True)
+ out.mkdir(parents=True,exist_ok=True);reports.mkdir(parents=True,exist_ok=True);vid=out/'四视图.mp4';log=[];audit=[];prefix=int(os.environ.get('TEST_SECONDS','120'));positions=np.array([[*p,.0076] for p in board['points']]);env=Physics(c,positions,car=(*board['start'],.001));ref=Referee(c['goals'],32,center_only=True,time_limit=prefix)
  # Overview framing only: fill the pane with the complete 3 x 2 m field.
  camid=mujoco.mj_name2id(env.m,mujoco.mjtObj.mjOBJ_CAMERA,'overview');env.m.cam_fovy[camid]=44.
  # Evaluate at all 240 Hz physics steps, including motor delay / rotation after braking.

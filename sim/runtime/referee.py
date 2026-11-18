@@ -24,13 +24,13 @@ def intersects_upright(xy,poly,r=.0235):
     return False
 
 class Referee:
-    def __init__(self,goals,n=32,*,center_only=False): self.center_only=center_only;self.goals=goals;self.planes=[polygon_planes(g) for g in goals];self.n=n;self.reset()
+    def __init__(self,goals,n=32,*,center_only=False,time_limit=120.): self.center_only=center_only;self.goals=goals;self.planes=[polygon_planes(g) for g in goals];self.n=n;self.time_limit=float(time_limit);self.reset()
     def reset(self):
         self.since=[None]*self.n;self.active=set();self.t=0.;self.windows=[];self.window_start=0.;self.window_count=0;self.done=False;self.reason=None;self.events=[]
     def update(self,t,poses):
         if self.done or t<self.t-1e-9 or len(poses)!=self.n:raise ValueError('referee time/count/end')
         # Runner calls on each physics step and never beyond timeout.
-        if t>120+1e-8:raise ValueError('must stop at 120 sim seconds')
+        if t>self.time_limit+1e-8:raise ValueError('must stop at configured time limit')
         previous=set(self.active)
         positions=np.asarray([p for p,R in poses]);axes=np.asarray([R[:,2] for p,R in poses]);inside_all=np.zeros(self.n,bool)
         for normals,bounds in self.planes:
@@ -49,7 +49,7 @@ class Referee:
         if self.active!=previous:self.events.append({'t':self.t,'enter':sorted(self.active-previous),'leave':sorted(previous-self.active)})
         if self.t-self.window_start>=10-1e-8:self._window()
         if len(self.active)==self.n:self.done=True;self.reason='all_in'
-        elif t>=120-1e-8:self.done=True;self.reason='timeout'
+        elif t>=self.time_limit-1e-8:self.done=True;self.reason='timeout'
     def _window(self):
         self.windows.append({'start_s':self.window_start,'end_s':self.t,'span_s':self.t-self.window_start,'net':len(self.active)-self.window_count,'partial':self.t-self.window_start<10-1e-8});self.window_start=self.t;self.window_count=len(self.active)
     def finish(self,error=None):

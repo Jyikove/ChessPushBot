@@ -23,9 +23,10 @@ python3 -m venv .venv
 pip install -r sim/requirements.txt
 python sim/point.py                   # 十盘：连续得分线 vs 八分区，三种地图策略
 BOARD_SEED=77 python sim/run.py        # 完整三维仿真；TEST_SECONDS=5 可做启动检查
+BOARD_SEED=115 TEST_SECONDS=300 python sim/run.py  # 五分钟仿真，32 枚全部入区时提前结束
 ```
 
-所有运行产物都写在仓库外。以下路径相对于仓库的上一级目录：点模型输出到 `决策层点模型实验/point-comparison/`；三维视频在 `三维仿真/视频/sim-seed-77/四视图.mp4`，核查记录在 `三维仿真/报告/sim-seed-77/`；再次运行同一种子会覆盖该目录中的同名产物。四分屏依次是车载 RGB 与 YOLO 框、物理俯瞰、视觉世界模型、状态与实测速度。
+所有运行产物都写在仓库外。以下路径相对于仓库的上一级目录：点模型输出到 `决策层点模型实验/point-comparison/`；三维视频在 `三维仿真/视频/sim-seed-77/四视图.mp4`，核查记录在 `三维仿真/报告/sim-seed-77/`；再次运行同一种子会覆盖该目录中的同名产物。`TEST_SECONDS` 同时配置物理循环和裁判时限，裁判会在全部 32 枚入区时提前结束。四分屏依次是车载 RGB 与 YOLO 框、物理俯瞰、视觉世界模型、状态与实测速度。
 
 ## 从观察到计分
 
