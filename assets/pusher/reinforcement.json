@@ -1,5 +1,7 @@
 {
-  "mount_sheet_mm": 1,
+  "mount_sheet_mm": 3.0,
+  "hole_region_thickness_mm": 2.0,
+  "hole_region_radius_mm": 3.5,
   "connector_max_thickness_mm": 5,
   "connector_width_at_blade_mm": 60,
   "transition_y_mm": [
@@ -7,12 +9,11 @@
     11
   ],
   "thickness_transition_mm": [
-    1,
+    3.0,
     5
   ],
   "ribs_count": 3,
   "rib_thickness_mm": 4,
-  "screw_unchanged_region_y_max_mm": 6,
   "added_material_bounds_mm": [
     [
       -30,
