@@ -1,29 +1,30 @@
 {
-  "centre_arc_radius_mm": 650.0,
+  "centre_arc_radius_mm": 318.1230565688427,
   "side_arc_radius_mm": 26.0,
   "central_arc_centre": [
     0,
-    667.0
+    335.1230565688427
   ],
   "right_arc_centre": [
-    70.0,
-    46.93871270655836
+    72.5,
+    52.139611506903975
   ],
   "left_arc_centre": [
-    -70.0,
-    46.93871270655836
+    -72.5,
+    52.139611506903975
   ],
-  "central_join_half_angle_deg": 6.440968757855869,
+  "central_join_half_angle_deg": 14.370022247213239,
+  "central_arc_depth_mm": 10.0,
   "side_tip_angle_deg": 35,
-  "side_arc_sweep_deg": 118.55903124214414,
+  "side_arc_sweep_deg": 110.62997775278676,
   "side_arc_reduction_deg": 20,
   "tip_round_radius_mm": 1.5,
   "right_tip_centre": [
-    91.29795315151378,
-    61.85170005168556
+    93.79795315151378,
+    67.05259885203117
   ],
   "join_tangent_error_deg": 0.0,
   "continuity": "G1 tangent, curvature changes at joins",
-  "width_including_wall_mm": 195,
+  "width_including_wall_mm": 200.0,
   "reference": "shape.png reflected so opening faces +Y"
 }
