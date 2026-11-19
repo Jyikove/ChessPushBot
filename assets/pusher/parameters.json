@@ -4,7 +4,7 @@
   "hole_pitch": 19,
   "hole_diameter": 3,
   "mounting_tongue_thickness": 3.0,
-  "hole_region_thickness_mm": 2.0,
+  "hole_region_thickness_mm": 1.0,
   "hole_region_radius_mm": 3.5,
   "reinforced_connector_thickness": 5,
   "ribs_count": 3,
@@ -15,7 +15,7 @@
   "central_arc_depth_mm": 10.0,
   "forward_extent_from_hole_line": 68.55259885203117,
   "mounting_surface_height_from_model_ground": 18.985724369286885,
-  "volume_mm3": 22080.14741855594,
+  "volume_mm3": 22017.31556548415,
   "retained_standoffs": true,
   "excluded_original_shells": [
     417,

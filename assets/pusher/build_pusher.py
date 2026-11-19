@@ -27,7 +27,7 @@ def prism(points,vec):
  for pt in points:w.Add(gp_Pnt(*pt))
  w.Close();return BRepPrimAPI_MakePrism(BRepBuilderAPI_MakeFace(w.Wire()).Face(),gp_Vec(*vec)).Shape()
 low=3.;high=27.;wall=3.;mount_thickness=3.
-hole_region_thickness=2.;hole_region_radius=3.5
+hole_region_thickness=1.;hole_region_radius=3.5
 # Three principal circular arcs, tangent at both joins. Width includes the 3 mm wall.
 target_width=200.
 target_centre_arc_depth=10.
@@ -69,7 +69,7 @@ arc((0,cy),R-wall/2,phi0,-math.pi/2-theta)
 arc(left,r-wall/2,math.pi-phi0,math.pi-phi1)
 arc(lt,wall/2,-phi1,math.pi-phi1)
 curved_wall=BRepPrimAPI_MakePrism(BRepBuilderAPI_MakeFace(wire.Wire()).Face(),gp_Vec(0,0,high-low)).Shape()
-# Mount sheet is 3 mm thick; underside pockets leave 2 mm around each screw.
+# Mount sheet is 3 mm thick; underside pockets leave 1 mm around each screw.
 parts=[box(-16,-8,mount_height-mount_thickness,32,18,mount_thickness),box(-16,8,mount_height-mount_thickness,32,10,mount_thickness),curved_wall]
 # Gradual underside transition: 3 mm to 5 mm over 4 mm of forward travel.
 transition=prism([(-16,7,mount_height-mount_thickness),(-16,7,mount_height),(-16,11,mount_height),(-16,11,mount_height-5)],(32,0,0))

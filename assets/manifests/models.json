@@ -291,37 +291,37 @@
     {
       "path": "assets/pusher/build_pusher.py",
       "bytes": 7766,
-      "sha256": "a18c1019296d677dd20f617b93c796df309f014ee874bc8c8a57ff54dd3c5ced"
+      "sha256": "20b6beaf3af183755f2bdbc785da78d0180853fe83482e8ec73690bed4c71fef"
     },
     {
       "path": "assets/pusher/parameters.json",
       "bytes": 704,
-      "sha256": "fda4bea180ada6adf180990441e044de5f9eb648c76c5b75e3b336c682f3a9da"
+      "sha256": "ba477b94423051c133cbdcd0711b0f089c0e8746ceae5b87b000efddb6c128d1"
     },
     {
       "path": "assets/pusher/preview.png",
-      "bytes": 121482,
-      "sha256": "1d3a849eb43fdb25a9dc1ad75689176c4129b2d9e95cc9d1906f315887af9066"
+      "bytes": 105185,
+      "sha256": "3a305b3282936d1509ef5c7dbb4a1b4a993fff3fab656f855bb00869fc728d54"
     },
     {
       "path": "assets/pusher/pusher.obj",
       "bytes": 62873,
-      "sha256": "0afbbe2fbbecff6f5f23c8ae79ec025cec46e3635da9d523f53c1a9ff3d9b0c3"
+      "sha256": "4de6c4a051a0b7ec5a3284de2756845a8d9c457e2d50d7c075708a17ad2cf60d"
     },
     {
       "path": "assets/pusher/pusher.step",
       "bytes": 175258,
-      "sha256": "b40272bf7e3c36c35074fbe61b3183aa003262bfcf56b6dc10081ac10dff5dc4"
+      "sha256": "2f4d970d9bb2129073cdd43493c9d4f605a4eeba0136aa974297f661dd2a242a"
     },
     {
       "path": "assets/pusher/pusher.stl",
       "bytes": 100184,
-      "sha256": "09581a391034cf359da1675171e9564de21ae7aba9bb8c8bad17dc7639b2bb0b"
+      "sha256": "6ee3c81a95dbd538c6567fc7a107984e861b7e7dcf5281cf959762b5f47fd7bb"
     },
     {
       "path": "assets/pusher/reinforcement.json",
       "bytes": 529,
-      "sha256": "8b5a473329d189088f9039ed677a774772fbb76d713c86ee71a16ab76c204377"
+      "sha256": "2754b60eef60c8c14ec7d79e182ff3af5fa4430867eb17023512ff23e8427015"
     },
     {
       "path": "assets/robot/preview.png",
@@ -336,7 +336,7 @@
     {
       "path": "assets/robot/simulation.json",
       "bytes": 66545,
-      "sha256": "1c441f6721439b27605a1bf814e136d35108d6c67a8b1800599df81c3643d5f9"
+      "sha256": "76e803ba722b9ca61f5b4692d702b51067f5359972b0c5ec44403f0fa263770b"
     },
     {
       "path": "assets/robot/visual_board.obj",
