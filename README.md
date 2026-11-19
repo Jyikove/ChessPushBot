@@ -96,7 +96,7 @@ cd ChessPushBot
 | 小车 | `assets/robot/raspbot.step` | 原厂 STEP，毫米；存在原始几何导入问题，仿真网格为外形近似 |
 | 小车仿真网格 | `assets/robot/simulation.json` | OBJ 为米；配置记录装配坐标变换、推板碰撞分块及简化假设 |
 | 场地 | `assets/field/field.obj`、`field.png`、`field.json` | 3×2 米；纹理与 OBJ 的 UV 配合使用，渲染器需显式绑定纹理 |
-| 推板 | `assets/pusher/pusher.step`、`pusher.stl` | 毫米；宽 200、中间弧深 10、壁厚 3、安装片主体 3、安装孔周围 2（半径 3.5）、离地 3；OBJ 是已转换到仿真车体坐标的米制网格 |
+| 推板 | `assets/pusher/pusher.step`、`pusher.stl` | 毫米；宽 200、中间弧深 10、壁厚 3、安装片主体 3、安装孔周围 1（半径 3.5）、离地 3；OBJ 是已转换到仿真车体坐标的米制网格 |
 | IMU 转接板 | `assets/imu_mount/imu_mount.step`、`imu_mount.stl` | 毫米；板厚 2、固定孔距 49×58、支座外径 6；搭配 14 mm 铜柱 |
 | 棋子 | `assets/chess/chess.json` | 14 种棋面、按数量组成 32 枚；直径 47 mm、高 15 mm；STEP/STL 毫米、GLB 场景变换后为米 |
 

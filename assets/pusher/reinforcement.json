@@ -1,6 +1,6 @@
 {
   "mount_sheet_mm": 3.0,
-  "hole_region_thickness_mm": 2.0,
+  "hole_region_thickness_mm": 1.0,
   "hole_region_radius_mm": 3.5,
   "connector_max_thickness_mm": 5,
   "connector_width_at_blade_mm": 60,
