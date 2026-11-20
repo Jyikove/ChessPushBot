@@ -1,13 +1,15 @@
 """Private MuJoCo runner: finite four-wheel PWM force/slip model; no velocity targets."""
-import sys,math,xml.etree.ElementTree as E
+import os,sys,math,xml.etree.ElementTree as E
 from pathlib import Path
 import numpy as np,mujoco,cv2
 ROOT=Path(__file__).resolve().parents[1]
 from sim003_scene import scene_xml
 from camera_alignment_adapter import load_profile,apply_scene,warp
 from core import WHEEL,validate_action
+from room_appearance import apply_room,camera_response
+from photo_room import apply_photos
 class Physics:
- def __init__(self,c,positions,car=(1.5,1.,.001),yaw=0,render=True):
+ def __init__(self,c,positions,car=(1.5,1.,.001),yaw=0,render=True,appearance='baseline'):
   self.c=c;self.car_start=car;self.positions=positions
   xml=E.fromstring(scene_xml(ROOT.parent/'assets/robot',position=car,pieces=positions,yaw=yaw))
   # Static fixed camera, gimbal posture represented explicitly by published extrinsics.
@@ -18,13 +20,39 @@ class Physics:
   profile.update(c['camera'])
   tilt=xml.find('.//body[@name="tilt_body"]');E.SubElement(tilt,'camera',name='onboard')
   apply_scene(xml,profile,rf)
+  apply_room(xml,appearance);self.camera_gain=camera_response(appearance,self.map.shape[:2])
   world=xml.find('worldbody');E.SubElement(world,'camera',name='overview',pos='1.5 1 3',xyaxes='1 0 0 0 1 0',fovy='60')
-  self.m=mujoco.MjModel.from_xml_string(E.tostring(xml,encoding='unicode'));self.d=mujoco.MjData(self.m)
+  assets={}
+  if appearance=='photo-room':
+   folder=os.environ.get('SIM_PHOTO_DIR',ROOT.parent.parent/'field-calibration/data/images')
+   assets=apply_photos(xml,folder,ROOT/'resources/room/background.png')
+  for element in xml.findall('asset/*[@file]'):
+   if element.get('file') in assets:continue
+   source=Path(element.get('file'));name=element.get('name')+source.suffix
+   assets[name]=source.read_bytes();element.set('file',name)
+  self.m=mujoco.MjModel.from_xml_string(E.tostring(xml,encoding='unicode'),assets=assets);self.d=mujoco.MjData(self.m)
+  self.room_lighting=appearance!='baseline'
+  if self.room_lighting:
+   light_names=[mujoco.mj_id2name(self.m,mujoco.mjtObj.mjOBJ_LIGHT,index) for index in range(self.m.nlight)]
+   self.strip_lights=[index for index,name in enumerate(light_names) if name and name.startswith('room_strip_')]
+   self.window_light=light_names.index('field_overhead_fill')
+   self.ambient_light=light_names.index('field_overhead_key')
+   self.light_diffuse=self.m.light_diffuse.copy()
+   self.light_specular=self.m.light_specular.copy()
+   self.light_ambient=self.m.light_ambient[self.ambient_light].copy()
+  self.soft_light=mujoco.mj_name2id(self.m,mujoco.mjtObj.mjOBJ_LIGHT,'field_overhead_fill') if appearance=='photo-room' else None
   for _ in range(240):mujoco.mj_step(self.m,self.d)
   self.d.time=0;self.d.qvel[:]=0;self.d.qacc_warmstart[:]=0;mujoco.mj_forward(self.m,self.d)
   self.car=mujoco.mj_name2id(self.m,mujoco.mjtObj.mjOBJ_BODY,'car');self.pieces=[mujoco.mj_name2id(self.m,mujoco.mjtObj.mjOBJ_BODY,f'piece_{i:02}') for i in range(len(positions))]
   self.renderer=mujoco.Renderer(self.m,height=960,width=1280) if render else None;self.opt=mujoco.MjvOption();self.opt.geomgroup[:]=[1,1,0,0,0,0]
+  self.onboard_opt=mujoco.MjvOption();self.onboard_opt.geomgroup[:]=[1,1,0,1,0,0]
   self.wheel_speed=np.zeros(4);self.delay=[];self.u=np.zeros(4);self.max_force=0;self.steps=0;self.contacts=0;self.rgb=None;self.image_time=0;self.last_control_contacts=set();self.judge_contact_events=[];self.robot_piece_contacts=0;self.first_robot_piece_contact=None
+ def set_room_lighting(self,strip_percent,window_percent):
+  strip,window=strip_percent/100,window_percent/100
+  for channel,original in ((self.m.light_diffuse,self.light_diffuse),(self.m.light_specular,self.light_specular)):
+   channel[self.strip_lights]=original[self.strip_lights]*strip
+   channel[self.window_light]=original[self.window_light]*window
+  self.m.light_ambient[self.ambient_light]=self.light_ambient*(.25+.45*strip+.30*window)
  def pose(self):
   p=self.d.xpos[self.car];r=self.d.xmat[self.car].reshape(3,3)
   return dict(x_m=float(p[0]),y_m=float(p[1]),yaw_rad=math.atan2(r[1,0],r[0,0]),time_s=self.time)
@@ -32,9 +60,23 @@ class Physics:
  def time(self):return self.steps/240
  def truth(self):return [(self.d.xpos[i].copy(),self.d.xmat[i].reshape(3,3).copy()) for i in self.pieces]
  def render(self,overview=False):
-  self.renderer.update_scene(self.d,camera='overview' if overview else 'onboard',scene_option=self.opt)
+  self.renderer.update_scene(self.d,camera='overview' if overview else 'onboard',scene_option=self.opt if overview else self.onboard_opt)
   a=self.renderer.render().copy()
-  return cv2.resize(a,(640,480)) if overview else warp(a,self.map)
+  if overview:return cv2.resize(a,(640,480))
+  if self.soft_light is not None and np.any(self.m.light_diffuse[self.soft_light]):
+   light=self.soft_light;direction=self.m.light_dir[light].copy();mix=a.astype(np.float32)
+   try:
+    offsets=((-0.08,-0.05),(-0.14,0.04),(0.08,-0.05),(0.14,0.04))
+    for horizontal,vertical in offsets:
+     shifted=direction+np.array([0,horizontal,vertical]);self.m.light_dir[light]=shifted/np.linalg.norm(shifted)
+     mujoco.mj_camlight(self.m,self.d)
+     self.renderer.update_scene(self.d,camera='onboard',scene_option=self.onboard_opt)
+     mix+=self.renderer.render()
+   finally:
+    self.m.light_dir[light]=direction;mujoco.mj_camlight(self.m,self.d)
+   a=np.rint(mix/(len(offsets)+1)).astype(np.uint8)
+  rgb=warp(a,self.map)
+  return rgb if self.camera_gain is None else np.clip(np.rint(rgb*self.camera_gain),0,255).astype(np.uint8)
  def obs(self):
   if self.rgb is None or self.steps%48==0:self.rgb=self.render();self.image_time=self.time
   return dict(time_s=self.time,dt_s=.1,rgb=self.rgb.copy(),image_time_s=self.image_time,pose=self.pose())

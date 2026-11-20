@@ -3,6 +3,7 @@ import os,sys,json,subprocess,tempfile,math,itertools
 os.environ.setdefault('MUJOCO_GL','glfw');sim=Path(__file__).resolve().parent;sys.path.insert(0,str(sim/'runtime'));import numpy as np,cv2,mujoco
 from goal_slots import CENTERS, plan, delivery_path
 from physics import Physics
+from room_appearance import PRESETS
 from referee import Referee
 from camera import Camera, prepare,postprocess
 from core import wrap,WHEEL
@@ -15,8 +16,11 @@ def make_board(seed):
   if all(math.dist(q,other)>.12 for other in points):points.append(q)
  return dict(seed=seed,start=start,points=points[1:])
 board=make_board(int(os.environ.get('BOARD_SEED','77')))
-reports=sim.parent.parent/'三维仿真/报告'/f"sim-seed-{board['seed']}"
-out=sim.parent.parent/'三维仿真/视频'/f"sim-seed-{board['seed']}";c=dict(camera=json.loads((sim/'resources/camera/camera_profile.json').read_text()),goals=[[[0,.42],[.11,.42],[.11,1.57],[0,1.57]]]);c['goals']=c['goals'][:1];grid=np.array([(x/10+.05,y/10+.05) for x in range(30) for y in range(20)])
+appearance=os.environ.get('SIM_APPEARANCE','baseline')
+if appearance not in PRESETS:raise SystemExit(f"SIM_APPEARANCE must be one of: {', '.join(PRESETS)}")
+run_name=f"sim-seed-{board['seed']}"+('' if appearance=='baseline' else f'-{appearance}')
+reports=sim.parent.parent/'三维仿真/报告'/run_name
+out=sim.parent.parent/'三维仿真/视频'/run_name;c=dict(camera=json.loads((sim/'resources/camera/camera_profile.json').read_text()),goals=[[[0,.42],[.11,.42],[.11,1.57],[0,1.57]]]);c['goals']=c['goals'][:1];grid=np.array([(x/10+.05,y/10+.05) for x in range(30) for y in range(20)])
 # Enclose tilted chess cylinders and every pusher collision primitive by spheres.
 cad=json.loads((sim.parent/'assets/robot/simulation.json').read_text())
 Rplate=max([math.dist(q,(0,0,0)) for part in cad['convex_parts'] for q in part['vertices']]+[math.hypot(*cap['position'][:2])+cap['radius']+abs(cap['position'][2])+cap['half_height'] for cap in cad['tip_caps']]);Rpiece=math.hypot(.0235,.0075);ZONE=.11;SWEEP=Rplate+2*Rpiece; SAFE=SWEEP+.035
@@ -260,9 +264,14 @@ def compose(o,top,b,ref,a):
  return im
 
 def main():
- out.mkdir(parents=True,exist_ok=True);reports.mkdir(parents=True,exist_ok=True);vid=out/'四视图.mp4';log=[];audit=[];prefix=int(os.environ.get('TEST_SECONDS','120'));positions=np.array([[*p,.0076] for p in board['points']]);env=Physics(c,positions,car=(*board['start'],.001));ref=Referee(c['goals'],32,center_only=True,time_limit=prefix)
+ live=os.environ.get('SIM_LIVE')=='1';window='ChessPushBot - Live Simulation'
+ out.mkdir(parents=True,exist_ok=True);reports.mkdir(parents=True,exist_ok=True);vid=out/'四视图.mp4';log=[];audit=[];prefix=int(os.environ.get('TEST_SECONDS','120'));positions=np.array([[*p,.0076] for p in board['points']]);env=Physics(c,positions,car=(*board['start'],.001),appearance=appearance);ref=Referee(c['goals'],32,center_only=True,time_limit=prefix)
  # Overview framing only: fill the pane with the complete 3 x 2 m field.
  camid=mujoco.mj_name2id(env.m,mujoco.mjtObj.mjOBJ_CAMERA,'overview');env.m.cam_fovy[camid]=44.
+ controls=('LED strips (%)','Window light (%)')
+ light_levels=tuple(int(os.environ.get(key,'100')) for key in ('SIM_STRIP_LIGHT','SIM_WINDOW_LIGHT'))
+ if any(level<0 or level>200 for level in light_levels):raise SystemExit('Light levels must be 0-200')
+ light_changes=[]
  # Evaluate at all 240 Hz physics steps, including motor delay / rotation after braking.
  original=ref.update;breakdown={};checks=dict(turn_steps=0,unsafe_turn_steps=0,min_turn_clearance=999.,protected_turn_contacts=0);steps_seen=0
  def audited(t,poses):
@@ -274,21 +283,38 @@ def main():
     q=poses[ev['piece_id']][0];dist=math.hypot(max(0,q[0]-ZONE,-q[0]),max(0,.42-q[1],q[1]-1.57));touch=int(ev['role']=='plate' and dist<=Rpiece);checks['protected_turn_contacts']+=touch;m['contacts']+=touch
  ref.update=audited
  with tempfile.TemporaryDirectory() as tmp:
-  exe=Path(tmp)/'solver';subprocess.run(['c++','-O3','-std=c++17',sim/'balance_solver.cpp','-o',exe],check=True)
+  exe=Path(tmp)/('solver.exe' if os.name=='nt' else 'solver');subprocess.run(['c++','-O3','-std=c++17','balance_solver.cpp','-o',exe],cwd=sim,check=True)
   with subprocess.Popen([exe,'delivery'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,text=True) as solver,subprocess.Popen(['ffmpeg','-loglevel','error','-y','-f','rawvideo','-pix_fmt','bgr24','-s','1280x900','-r','5','-i','-','-c:v','libx264','-preset','veryfast','-crf','20','-pix_fmt','yuv420p','-movflags','+faststart',str(vid)],stdin=subprocess.PIPE) as enc:
    b=Brain(solver)
    try:
+    if live:
+     cv2.namedWindow(window,cv2.WINDOW_NORMAL);cv2.resizeWindow(window,960,675)
+     if env.room_lighting:
+      for label,level in zip(controls,light_levels):cv2.createTrackbar(label,window,level,200,lambda _:None)
     for k in range(prefix*10+1):
+     if env.room_lighting and k%2==0:
+      levels=tuple(cv2.getTrackbarPos(label,window) for label in controls) if live else light_levels
+      if min(levels)<0:break
+      if not light_changes or levels!=light_levels:
+       light_levels=levels;env.set_room_lighting(*levels)
+       light_changes.append(dict(t=env.time,strip_percent=levels[0],window_percent=levels[1]))
      mujoco.mj_kinematics(env.m,env.d);mujoco.mj_camlight(env.m,env.d);o=env.obs();a=b.act(o)
      if k%2==0 or ref.done:
       im=compose(o,env.render(True),b,ref,a);enc.stdin.write(im.tobytes());log.append(dict(t=env.time,pose=o['pose'],state=b.state,pwm=a['motor_pwm'],detections=len(b.boxes),tracks=len(b.mapped(env.time)),route=b.seq.copy(),mapped_pieces={k:b.db[k]['p'].tolist() for k in b.mapped(env.time)},estimated_load=b.load,goal_slot=b.slot,slot_counts=b.counts.copy(),score=len(ref.active),odo=b.odo,plans=b.plans));
-      if k==20:cv2.imwrite(str(out/'画面预览.jpg'),im)
+      if k==20:
+       ok,jpeg=cv2.imencode('.jpg',im)
+       if ok:(out/'画面预览.jpg').write_bytes(jpeg.tobytes())
+      if live:
+       cv2.imshow(window,im)
+       if cv2.waitKey(1) in (27,ord('q')) or cv2.getWindowProperty(window,cv2.WND_PROP_VISIBLE)<1:break
      if k%150==0:print('sim',env.time,b.state,len(ref.active),flush=True)
      if ref.done or k==prefix*10:break
      n=len(env.judge_contact_events);is_turn=a['motor_pwm'][0]!=a['motor_pwm'][1];x0=len(ref.events);env.step(a,ref)
      # Contact coordinates + full-step poses checked separately below on every rotation step.
      audit.append(dict(t=o['time_s'],state=b.state,phase=b.phase,turn=is_turn,clear=clearance(b.pos),pwm=a['motor_pwm'],finish=b.end.reason,blade_back=getattr(b.end,'back',None),wall=getattr(b.end,'wall',None)))
-   finally:enc.stdin.close();solver.stdin.close();env.close()
+   finally:
+    if live:cv2.destroyAllWindows()
+    enc.stdin.close();solver.stdin.close();env.close()
    if enc.wait():raise RuntimeError('video encoding failed')
- (reports/'运行记录.json').write_text(json.dumps(dict(seed=board['seed'],board=board,map_events=b.map_events,retreat_reviews=b.review_log,visual_recounts=b.recounts,scoring='center_inside_immediate',checks=checks,breakdown=breakdown,audit=audit,plate_radius=Rplate,safe_x=ZONE+SAFE+.025,result=ref.finish() if ref.done else None,frames=log),ensure_ascii=False));print('DONE',log[-1])
+ (reports/'运行记录.json').write_text(json.dumps(dict(seed=board['seed'],board=board,map_events=b.map_events,retreat_reviews=b.review_log,visual_recounts=b.recounts,scoring='center_inside_immediate',checks=checks,breakdown=breakdown,audit=audit,plate_radius=Rplate,safe_x=ZONE+SAFE+.025,result=ref.finish() if ref.done else None,frames=log,lighting=light_changes),ensure_ascii=False),encoding='utf-8');print('DONE',log[-1])
 if __name__=='__main__':main()

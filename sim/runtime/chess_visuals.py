@@ -4,7 +4,7 @@ import json,hashlib,xml.etree.ElementTree as E
 from piece_spec import RADIUS_M,HALF_HEIGHT_M,MASS_KG,inertia,identity
 
 def add_chess_visuals(model,asset_dir):
-    folder=Path(__file__).resolve().parents[1]/'resources/chess';metadata=json.loads((folder/'chess_manifest.json').read_text());asset=model.find('asset')
+    folder=Path(__file__).resolve().parents[1]/'resources/chess';metadata=json.loads((folder/'chess_manifest.json').read_text(encoding='utf-8'));asset=model.find('asset')
     bodies=[b for b in model.findall('.//body') if b.get('name','').startswith('piece_')]
     if not 1<=len(bodies)<=32:raise ValueError('one to32 independent chess bodies required')
     used=sorted({mesh for i in range(len(bodies)) for mesh in metadata['pieces'][i]['mesh_parts'].values()})
