@@ -26,6 +26,36 @@ BOARD_SEED=77 python sim/run.py        # 完整三维仿真；TEST_SECONDS=5 可
 BOARD_SEED=115 TEST_SECONDS=300 python sim/run.py  # 五分钟仿真，32 枚全部入区时提前结束
 ```
 
+在 Windows PowerShell 中，从仓库根目录打开实时四视图（需 Python 3.12 和 PATH 上的 `c++`、`ffmpeg`）：
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r sim/requirements.txt
+$env:SIM_LIVE = '1'
+$env:SIM_APPEARANCE = 'photo-room'
+.\.venv\Scripts\python.exe sim/run.py
+```
+
+窗口随仿真更新，仍会同时保存录像。按 `Esc`、`Q` 或关闭窗口可提前结束。
+
+用 `SIM_APPEARANCE` 切换车载镜头所见的场地外观：
+
+| 值 | 渲染环境 |
+| --- | --- |
+| `baseline`（默认） | 原有灯光和黑背景 |
+| `overcast` | 冷色窗光、漫射顶光和较轻的地面阴影 |
+| `window-sun` | 强烈斜射侧光，带围挡和物体投影 |
+| `warm-room` | 弱窗光、偏暖的室内灯和较低曝光 |
+| `photo-room` | 实拍参考生成的四面背景、较暗底板和多方向采样的柔和侧光 |
+
+例如在 PowerShell 中运行 `$env:SIM_APPEARANCE='window-sun'`，再启动 `sim/run.py`。新场景基于实拍中可见的围挡、白墙、窗框与柜体进行近似建模，未使用实拍作为贴图，也没有测量现场灯光。背景只在车载视角可见，不参与碰撞；光照会影响实际送进 YOLO 的 RGB，而不只是美化回放。非默认场景的输出目录带有预设后缀，不覆盖原版结果。
+
+非默认场景均用两根灯条（每根三个出光点）与窗侧光共同照明；围栏为哑光白色，底板保留比赛图案并产生宽而淡的高光，不模拟镜面倒影。灯条的位置、亮度和材质是近似值，不是现场测量结果。
+
+`photo-room` 使用参考实拍生成的四面背景图 `resources/room/background.png`，固定在场地外的世界坐标平面上。背景不是实景扫描；地面保留比赛图案，并调低亮度。若同级 `field-calibration/data/images`（或 `SIM_PHOTO_DIR`）存在原始实拍，会额外叠加实拍表面细纹。渲染仍是 MuJoCo OpenGL，不是路径追踪。
+
+非 `baseline` 场景在 `SIM_LIVE=1` 时提供 `LED strips (%)` 和 `Window light (%)` 滑杆，范围 0–200，100 为场景预设。两者分别改变灯条和窗侧光的渲染强度，下一张车载画面和 YOLO 同步生效。无窗口跑批时可用环境变量 `SIM_STRIP_LIGHT` 和 `SIM_WINDOW_LIGHT`；运行记录保存灯光变更时间与数值。背景图内的亮度是固定纹理，滑杆不会重新生成墙面的照片光照。
+
 所有运行产物都写在仓库外。以下路径相对于仓库的上一级目录：点模型输出到 `决策层点模型实验/point-comparison/`；三维视频在 `三维仿真/视频/sim-seed-77/四视图.mp4`，核查记录在 `三维仿真/报告/sim-seed-77/`；再次运行同一种子会覆盖该目录中的同名产物。`TEST_SECONDS` 同时配置物理循环和裁判时限，裁判会在全部 32 枚入区时提前结束。四分屏依次是车载 RGB 与 YOLO 框、物理俯瞰、视觉世界模型、状态与实测速度。
 
 ## 从观察到计分
