@@ -1,0 +1,23 @@
+#!/bin/sh
+set -eu
+
+if [ "$#" -ne 1 ]; then
+    echo 'Usage: chess test | chess run | chess record-run' >&2
+    exit 2
+fi
+case "$1" in
+    test|run|record-run) ;;
+    *) echo 'Usage: chess test | chess run | chess record-run' >&2; exit 2 ;;
+esac
+
+exec /usr/bin/python3 -B -c '
+import json, os, sys
+from pathlib import Path
+root = Path(sys.argv[1]).resolve().parents[1]
+try:
+    with (root / "config/pi.local.json").open() as stream:
+        python = root / Path(json.load(stream)["python"]).expanduser()
+    os.execv(python, [str(python), "-B", str(root / "main.py"), sys.argv[2]])
+except (OSError, ValueError, KeyError) as error:
+    sys.exit(f"chess: {error}")
+' "$0" "$1"

@@ -1,0 +1,66 @@
+{
+  "camera_device": "/dev/video0",
+  "camera_fps_requested": 15,
+  "yolo_precision": "fp16",
+  "yolo_threads": 2,
+  "python": "~/.venvs/chessbot/bin/python3",
+  "model_dir": "~/.local/share/chessbot/model",
+  "wheel_profile": "~/.config/chessbot/wheel_calibration.json",
+  "camera_profile": "config/camera_pi.json",
+  "policy_profile": "config/policy.json",
+  "log_dir": "~/.local/state/chessbot/runs",
+  "startup_timeout_s": 8.0,
+  "camera_poll_timeout_s": 0.05,
+  "modes": {
+    "test": {
+      "seconds": null,
+      "one_cycle": false
+    },
+    "run": {
+      "seconds": 45.0,
+      "one_cycle": true
+    },
+    "record-run": {
+      "seconds": 45.0,
+      "one_cycle": true
+    }
+  },
+  "preview": {
+    "title": "Chess Test",
+    "display": ":0",
+    "xauthority": "~/.Xauthority",
+    "window_size": [
+      800,
+      710
+    ]
+  },
+  "recording": {
+    "fps": 15.0,
+    "codec": "mp4v",
+    "queue_frames": 8
+  },
+  "imu_device": "/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0",
+  "imu_baud": 115200,
+  "R_body_imu": [
+    [
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      1,
+      0
+    ],
+    [
+      0,
+      0,
+      1
+    ]
+  ],
+  "pwm_55_wheel_speed_m_s_provisional": 0.32,
+  "yaw_arm_m_provisional": 0.11,
+  "max_camera_age_s": 0.25,
+  "max_imu_age_s": 0.15,
+  "motor_command_timeout_s": 0.4
+}
