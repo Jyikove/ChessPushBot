@@ -1,0 +1,96 @@
+{
+  "match_s": 120,
+  "board_seeds": [77, 115, 197],
+  "wheel_response_profiles": {
+    "nominal": {"deadband_pwm": [18, 18, 18, 18], "max_speed_m_s": [0.32, 0.32, 0.32, 0.32]},
+    "mild-mismatch": {"deadband_pwm": [23, 16, 20, 14], "max_speed_m_s": [0.301, 0.333, 0.314, 0.336]}
+  },
+  "opening_search_heading_deg": 33.5,
+  "detector_confidence": 0.35,
+  "detector_nms_iou": 0.45,
+  "detector_tracking": {
+    "min_hits": 2,
+    "match_iou": 0.25,
+    "current_weight": 0.72,
+    "max_gap_s": 0.22
+  },
+  "detector_top_fragment_filter": {
+    "min_small_coverage": 0.85,
+    "max_area_ratio": 0.45,
+    "max_bottom_fraction": 0.68,
+    "separate_child_iou": 0.20,
+    "top_overhang": {
+      "max_top_fraction": 0.22,
+      "max_bottom_fraction": 0.50,
+      "max_height_ratio": 0.46,
+      "min_width_ratio": 0.68,
+      "max_center_offset": 0.13,
+      "min_x_coverage": 0.90,
+      "min_y_coverage": 0.50
+    }
+  },
+  "target_lost_s": 0.6,
+  "far_target_switch_margin_m": 0.08,
+  "capture_disappearance_s": 0.73,
+  "visible_cluster_capture": {
+    "hold_s": 1.65,
+    "max_gap_s": 0.25,
+    "contact_forward_m": 0.255,
+    "contact_half_width_m": 0.08,
+    "cluster_forward_m": 0.36,
+    "cluster_half_width_m": 0.14,
+    "distinct_center_m": 0.04,
+    "max_forward_span_m": 0.05,
+    "min_image_motion_px": 0.55
+  },
+  "capture_verify_timeout_s": 3.0,
+  "capture_max_count": 1,
+  "return_pickup": {
+    "score_entry_priority_m": 0.40,
+    "minimum_forward_m": 0.22,
+    "alignment_m": 0.04,
+    "west_speed_m_s": 0.17,
+    "lateral_speed_m_s": 0.18,
+    "timeout_s": 5.5
+  },
+  "capture_bottom_fraction": 0.80,
+  "capture_horizontal_fraction": 0.14,
+  "piece_aim_x_fraction": 0.48,
+  "yaw_tolerance_deg": 4.0,
+  "turn_home_tolerance_deg": 5.0,
+  "yaw_stable_s": 0.25,
+  "pivot_max_yaw_rate_rad_s": 2.4,
+  "retreat_clearance_m": 0.26,
+  "retreat_timeout_s": 2.525,
+  "entry_half_width_m": 0.13,
+  "entry_lateral_tolerance_m": 0.035,
+  "start_zone_hint_s": 0.6,
+  "start_zone_right_m_s": 0.18,
+  "fence": {
+    "side_trigger_m": 0.38,
+    "hold_s": 0.65,
+    "inward_speed_m_s": 0.23,
+    "forward_speed_m_s": 0.08
+  },
+  "stall": {
+    "stationary_s": 2.0,
+    "max_horizontal_accel_rms_m_s2": 0.30,
+    "max_yaw_rate_rad_s": 0.10,
+    "escape_s": 0.75,
+    "escape_speed_m_s": 0.19
+  },
+  "collision": {
+    "negative_m_s2": 0.26,
+    "negative_duration_s": 0.035,
+    "velocity_drop_m_s": 0.035,
+    "drop_window_s": 0.20,
+    "armed_after_command_s": 0.40
+  },
+  "stress": {
+    "appearance": "overcast",
+    "heading_offset_deg": 2.0,
+    "heading_drift_deg": 3.0,
+    "heading_white_std_deg": 0.35,
+    "camera_pixel_noise_std": 1.6
+  }
+}
