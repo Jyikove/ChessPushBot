@@ -2,241 +2,461 @@
   "schema": 1,
   "source_selection": {
     "robot": "Yahboom original STEP and existing sim003 visual derivative",
-    "field": "field_white_v1",
-    "pusher": "三段圆弧推板_v5",
+    "field": "2026-11-17 competition notice, figure 1",
+    "pusher": "290 mm arc pusher, unchanged M3 mounting interface",
     "imu_mount": "IMU转接板_v10_支座对齐",
-    "chess": "象棋_47x15_v1; corrected black 炮"
+    "chess": "2026-11-17 competition notice and attachment 1"
   },
   "files": [
     {
       "path": "assets/chess/chess.json",
-      "bytes": 3489,
-      "sha256": "b47356edfc654c7268f26abb2cabeea777a5a80521c65ac1bfb7f46473a7853e"
+      "bytes": 4406,
+      "sha256": "b37ec37bc5b52a3423556a452de10125c0767ae57ecb30987fedcb38b3d6931c"
     },
     {
       "path": "assets/chess/collision.stl",
-      "bytes": 8284,
-      "sha256": "fc70fa913fbb9c59d4a5ef0538d259356dc3e081c9ed4c6c12719d01e7b76780"
+      "bytes": 15684,
+      "sha256": "6ed9fdc6b7364e3e135231c2fce0e7d64024c162adc3eec61709ad275addbff3"
+    },
+    {
+      "path": "assets/chess/faces/source.json",
+      "bytes": 2042,
+      "sha256": "26c62a5112bee528aa37c0287bb686bf8b5c4f7e66dba97637138ff703c96f7f"
+    },
+    {
+      "path": "assets/chess/faces/白_卒.png",
+      "bytes": 5937,
+      "sha256": "17177781be8f0656d7e017c85fcc7af3303aa76d75d03681cb573a5d4c35ac80"
+    },
+    {
+      "path": "assets/chess/faces/白_士.png",
+      "bytes": 5892,
+      "sha256": "3447e28ddfd43f5599d6384ec585905d67252e29728cf37b5552beb9f55f370e"
+    },
+    {
+      "path": "assets/chess/faces/白_將.png",
+      "bytes": 6216,
+      "sha256": "daf05d250113e3b1555747aa369982d71af2d9b7f4227e74fe5ba21dfc427aa6"
+    },
+    {
+      "path": "assets/chess/faces/白_炮.png",
+      "bytes": 6066,
+      "sha256": "ac02dac88989ea84fa359257882b2f1d39d71930f984e446ea433a630bb9a70b"
+    },
+    {
+      "path": "assets/chess/faces/白_象.png",
+      "bytes": 6010,
+      "sha256": "39fc241ca7c89af87cc4a37c773edb66768959a48a3e484f8d2de8c6f989a3b2"
+    },
+    {
+      "path": "assets/chess/faces/白_車.png",
+      "bytes": 5947,
+      "sha256": "2e6fca8a1050abda80f546f886b4bb856d4a17f13fb7baf7abe05823d1f403aa"
+    },
+    {
+      "path": "assets/chess/faces/白_馬.png",
+      "bytes": 5986,
+      "sha256": "4856fe9546e157cd330e3a93dbe4add3441d1c2c412513e85b6f88fd8af8c227"
+    },
+    {
+      "path": "assets/chess/faces/红_仕.png",
+      "bytes": 11753,
+      "sha256": "1a3ec736b6dc88a6567e7e09d36821f01837006dfa8c963b79add4f47a004dd8"
+    },
+    {
+      "path": "assets/chess/faces/红_兵.png",
+      "bytes": 11686,
+      "sha256": "01aa82ddeacbd4ffcd5eff7eb2af1af640ea72ab8f2d6b5aa0bd557069d31a79"
+    },
+    {
+      "path": "assets/chess/faces/红_帥.png",
+      "bytes": 11847,
+      "sha256": "f04f99021dfc0108bac91ad3f34c9403f7c378a7f8b09bc77a510004626ef032"
+    },
+    {
+      "path": "assets/chess/faces/红_炮.png",
+      "bytes": 11934,
+      "sha256": "3c6f376b5da377b9a6730658cdbc515b81bc57f80f8947f9a93652ef9f7aa98a"
+    },
+    {
+      "path": "assets/chess/faces/红_相.png",
+      "bytes": 11932,
+      "sha256": "e58109856652f4f07348d75ec78f042ae6beb0694883fff3a74721d8fff7aa01"
+    },
+    {
+      "path": "assets/chess/faces/红_車.png",
+      "bytes": 11835,
+      "sha256": "7437c5efa05cffdd523b79a07a6afc8f96f97051441f92fc24fab05687e506d4"
+    },
+    {
+      "path": "assets/chess/faces/红_馬.png",
+      "bytes": 11835,
+      "sha256": "d67ac3b6d76b0b04d0a34ea6591d4587b94e7660533fdd582d7bc94a6a49765d"
+    },
+    {
+      "path": "assets/chess/faces_hd/白_卒.png",
+      "bytes": 125843,
+      "sha256": "1e02820849b135c7a857a80b010ed9cc7ee2a5a254a2ed6e78500d2e741ffb86"
+    },
+    {
+      "path": "assets/chess/faces_hd/白_卒.svg",
+      "bytes": 7771,
+      "sha256": "64127da869e3d2ce0a1898c75bc18912ffd22b766d3dec2849b5c0c6869560c5"
+    },
+    {
+      "path": "assets/chess/faces_hd/白_士.png",
+      "bytes": 110497,
+      "sha256": "9edc3ddf2523722c6040199ccc72ed8673b2381eee3f9d2dc2249c4c929b1f42"
+    },
+    {
+      "path": "assets/chess/faces_hd/白_士.svg",
+      "bytes": 5043,
+      "sha256": "a36acb9d8eddc6b05caca643acc99134054d635d3f3f78fcb496c3d221fa3e75"
+    },
+    {
+      "path": "assets/chess/faces_hd/白_將.png",
+      "bytes": 141751,
+      "sha256": "78a0cd692131d81801bf7fc998e6b86e0fb5aa5deca49ee1cb5d6d20a01883ca"
+    },
+    {
+      "path": "assets/chess/faces_hd/白_將.svg",
+      "bytes": 11511,
+      "sha256": "78c0fe1d140481ff84bbc8bad6ed428f0b1b389905e0b27d6fa9e64c6acab485"
+    },
+    {
+      "path": "assets/chess/faces_hd/白_炮.png",
+      "bytes": 130897,
+      "sha256": "de0ec8481c454b31493a0610bea7b514d7e0efa6ab9c9cd4147a72d2d1774667"
+    },
+    {
+      "path": "assets/chess/faces_hd/白_炮.svg",
+      "bytes": 9827,
+      "sha256": "8c52ebe9e544d220ede684852933bb9951a88f7f42603440648f8a2ad1fee38e"
+    },
+    {
+      "path": "assets/chess/faces_hd/白_象.png",
+      "bytes": 135100,
+      "sha256": "35ca3eb8f41a1a9e8a991ac698f8d9b3445d2fbe6c7a74b840acacfbb4efbe01"
+    },
+    {
+      "path": "assets/chess/faces_hd/白_象.svg",
+      "bytes": 10016,
+      "sha256": "3b1f655b44aa3518e26bd99cdd94bd536b5479d782bbd8fc968bf9165b80014a"
+    },
+    {
+      "path": "assets/chess/faces_hd/白_車.png",
+      "bytes": 128088,
+      "sha256": "f968f3e153a6f106779e17ec7c4f2c9366efc6dc52758dc3c0d53cda3f4845bb"
+    },
+    {
+      "path": "assets/chess/faces_hd/白_車.svg",
+      "bytes": 8765,
+      "sha256": "3b2ef1a9cff682f798ca31f3d0ce78ec9d6dada2f7ef8852c66fcbfa3b419295"
+    },
+    {
+      "path": "assets/chess/faces_hd/白_馬.png",
+      "bytes": 127100,
+      "sha256": "329a678c7cd936e326c3b62009ab5161e8b11cfbeb137417ce5732f090de6754"
+    },
+    {
+      "path": "assets/chess/faces_hd/白_馬.svg",
+      "bytes": 8337,
+      "sha256": "1479df2066f527fc5a361fa6d431ecb449301bbc288297e15b708a8152e690a0"
+    },
+    {
+      "path": "assets/chess/faces_hd/红_仕.png",
+      "bytes": 93010,
+      "sha256": "3befb5902951f1eb2a9ea326d1cd353094879e4e30b4f0dfb8350eb6418a9151"
+    },
+    {
+      "path": "assets/chess/faces_hd/红_仕.svg",
+      "bytes": 6033,
+      "sha256": "bbcd8be5fecc5581a6b71ea7bed3431df97c3e68fdbe89ed9bf44b4813ac601a"
+    },
+    {
+      "path": "assets/chess/faces_hd/红_兵.png",
+      "bytes": 96140,
+      "sha256": "8d4c257ca5d11376b6932eff7ee3443fb218b86e7551fb582c5aaf66d77f5b76"
+    },
+    {
+      "path": "assets/chess/faces_hd/红_兵.svg",
+      "bytes": 6388,
+      "sha256": "e6987e7bc6f3663d1c087677ec1faf1c3e92836cbd808dcb66e54742b3817f31"
+    },
+    {
+      "path": "assets/chess/faces_hd/红_帥.png",
+      "bytes": 100920,
+      "sha256": "767ce078a1dc7161fb842d6016a8ec745a979c7b82157aecbc83fa544f3530f6"
+    },
+    {
+      "path": "assets/chess/faces_hd/红_帥.svg",
+      "bytes": 7763,
+      "sha256": "c60253ef7f7e71307d6e7f156744e79f6b9846e3a0a3f58966fc9662deaaea1c"
+    },
+    {
+      "path": "assets/chess/faces_hd/红_炮.png",
+      "bytes": 102698,
+      "sha256": "4a1b5af9a6c28de92b1f44afc62731cdf8269ff12319872faa7ea205063e5248"
+    },
+    {
+      "path": "assets/chess/faces_hd/红_炮.svg",
+      "bytes": 8414,
+      "sha256": "f277a58672d62ccb3308bf429e76ed797a282538d9662258a3aa604ad5ab2ce4"
+    },
+    {
+      "path": "assets/chess/faces_hd/红_相.png",
+      "bytes": 101645,
+      "sha256": "dec511adf7a03a1e22613ac619d5b92da505d6b0e70db503d34d91ea16564088"
+    },
+    {
+      "path": "assets/chess/faces_hd/红_相.svg",
+      "bytes": 7618,
+      "sha256": "0b700b3407c9a0f495a1cdc5e2596d63ec544c2a1281feff3cda837b17e6e054"
+    },
+    {
+      "path": "assets/chess/faces_hd/红_車.png",
+      "bytes": 100581,
+      "sha256": "ee662c03ef301b71813aa4710a46bf5a6fe2d2c3a38ee96cdd783022ac196881"
+    },
+    {
+      "path": "assets/chess/faces_hd/红_車.svg",
+      "bytes": 7440,
+      "sha256": "8416018c190789c6e5c3798d6ac3944cf6b8ffbde3b2ceead3e2d55b948020a2"
+    },
+    {
+      "path": "assets/chess/faces_hd/红_馬.png",
+      "bytes": 100773,
+      "sha256": "f2dd56aef8ada8f188e444ebd5e2d1eba0283c4369d5b88036d7052690ec994b"
+    },
+    {
+      "path": "assets/chess/faces_hd/红_馬.svg",
+      "bytes": 7844,
+      "sha256": "85f88a7f27864c35a023a0d6599df518eb60955a6d18f069a6adc2b989457c4e"
+    },
+    {
+      "path": "assets/chess/glb/白_卒.glb",
+      "bytes": 313080,
+      "sha256": "fef41e38cf47998127188e10457c393e63d67a772e3a6e2e1fdb81ed01a1bf9d"
+    },
+    {
+      "path": "assets/chess/glb/白_士.glb",
+      "bytes": 260088,
+      "sha256": "d709157e8cb5302e3aae32933fa7d5691e9e00f3d16c39c976f97979cd39f1d1"
+    },
+    {
+      "path": "assets/chess/glb/白_將.glb",
+      "bytes": 381436,
+      "sha256": "5de3df3a51a5d9cb4634b2010294b551c65d60f8fcb02df71bf7ac85a1884569"
+    },
+    {
+      "path": "assets/chess/glb/白_炮.glb",
+      "bytes": 351484,
+      "sha256": "b12440cb60a8ab07684f45948037e6bd6cd664b69090e55683ee365b3dab30c2"
+    },
+    {
+      "path": "assets/chess/glb/白_象.glb",
+      "bytes": 358296,
+      "sha256": "7e170df93e3a2a6f0cc44dc5ca759a65d5d9bb94c6882ccefbb0ed53d935d062"
+    },
+    {
+      "path": "assets/chess/glb/白_車.glb",
+      "bytes": 333724,
+      "sha256": "7ec2b884ebc8dc19c60f47a2e58694b40103d2782aaa4120519811afc2ab1e0d"
+    },
+    {
+      "path": "assets/chess/glb/白_馬.glb",
+      "bytes": 325660,
+      "sha256": "75445845d0778a76fb96bcaf89d3bad796dc7177ce4d789c247dfd9aa0f59844"
     },
     {
       "path": "assets/chess/glb/红_仕.glb",
-      "bytes": 558508,
-      "sha256": "1237b2ce2a905b79512fe37943fde289ed8cdca9725f107d1fbbef4c762cd6b9"
+      "bytes": 277564,
+      "sha256": "722db1d7216358d27bc2824b5d310e8cac4468250966ff9c8ece14a52525669d"
     },
     {
       "path": "assets/chess/glb/红_兵.glb",
-      "bytes": 590708,
-      "sha256": "76a4cbb67f7e3c5e1a5c497e506b295332a9ade44e067d7f44709f8e355e42c0"
+      "bytes": 286396,
+      "sha256": "2dac39af736908ea3781e59a08538c1237c3c19b32bd431ba5758846ea168c40"
     },
     {
       "path": "assets/chess/glb/红_帥.glb",
-      "bytes": 619536,
-      "sha256": "695e9f4b7cfcddd05cac5a9cc653f2565550905eb94a70193c4e9f5ba1d837b4"
+      "bytes": 312412,
+      "sha256": "ee4f5239b01fb848d7d018194baef01efd78bf8e0e8f7928e9102d81a49a77a9"
     },
     {
       "path": "assets/chess/glb/红_炮.glb",
-      "bytes": 781292,
-      "sha256": "cdebd8ec3f13012a3d0581b702d81cae883475d6de6139c9f0085ec2891c602f"
+      "bytes": 324604,
+      "sha256": "d0dee45886bc761d563f7a1931293638e7190582b89612411dd84db6a8f82cab"
     },
     {
       "path": "assets/chess/glb/红_相.glb",
-      "bytes": 651592,
-      "sha256": "76751ac8831f39505315b90cd3f8df0c7d0b2482dd9093ccede653f3ac477efe"
+      "bytes": 309724,
+      "sha256": "2d64bc67118e9a9b46ecae053c4836bc2486e0a5faaafd0078a159daff96500a"
     },
     {
       "path": "assets/chess/glb/红_車.glb",
-      "bytes": 618108,
-      "sha256": "fea05d6f0a944907b89f76c8c0c1eb01ae190f8df15534dd9db99d211708fbee"
+      "bytes": 307228,
+      "sha256": "47af105fde9089305b1ef868bf8d459b5fae9d49edb67392664f1fcb0266a85f"
     },
     {
       "path": "assets/chess/glb/红_馬.glb",
-      "bytes": 739148,
-      "sha256": "946799b693ebea326fea398af4cc506e0c4e74456d406bf176037d77491f517b"
-    },
-    {
-      "path": "assets/chess/glb/黑_卒.glb",
-      "bytes": 658672,
-      "sha256": "5064a0e74a784fead0fd8111611820af8a4a2e5d43f04f2667d1261c0fc0fa9e"
-    },
-    {
-      "path": "assets/chess/glb/黑_士.glb",
-      "bytes": 485076,
-      "sha256": "ccf3125883b3d5907d30a6a176e61eee626a0faf4fea3023cb56cc44cb157204"
-    },
-    {
-      "path": "assets/chess/glb/黑_將.glb",
-      "bytes": 868756,
-      "sha256": "41f50363c2470b5997f48f37f2687675ca29a507943858ce1fff88150ad9b4af"
-    },
-    {
-      "path": "assets/chess/glb/黑_炮.glb",
-      "bytes": 781292,
-      "sha256": "6173184ceb000d59a5e5a1fdd8fde1cc283d4f6e703a90bec5a4d44a02ae6e28"
-    },
-    {
-      "path": "assets/chess/glb/黑_象.glb",
-      "bytes": 777676,
-      "sha256": "92a3a2133360b259f692018bb5b8888fc8e09d85783061640b9ba4d309b1c47e"
-    },
-    {
-      "path": "assets/chess/glb/黑_車.glb",
-      "bytes": 618104,
-      "sha256": "6a338a722f2b8f503486a3328517546172072199c57ab9ff64863a70d8eedcba"
-    },
-    {
-      "path": "assets/chess/glb/黑_馬.glb",
-      "bytes": 739148,
-      "sha256": "4a514ed509db154ef1c9fd2fcd0c1bde7797f27933cfd59c54adc2d179d66cfe"
+      "bytes": 316348,
+      "sha256": "8645af742cfc92d13d8797d2de143b2048956e2a0600e8a99c676d904ddae626"
     },
     {
       "path": "assets/chess/preview.png",
-      "bytes": 784170,
-      "sha256": "801d13a43c1b8b0c3a240cf5ee01dc1ca8b31f8e477ca95692b47527fdcdd52d"
+      "bytes": 227905,
+      "sha256": "7add6bb52e84b06e53ddf4e553eef96964832e6f83d0702d61e5eab9c8d0cb74"
+    },
+    {
+      "path": "assets/chess/step/白_卒.step",
+      "bytes": 4294759,
+      "sha256": "505d0acb052ccd0283fb79bd8640850f8fbafee806857d10dfbae4a4b4aaeac5"
+    },
+    {
+      "path": "assets/chess/step/白_士.step",
+      "bytes": 2742717,
+      "sha256": "7d765d6f26f9d8b31da069be856e1bc742e507fd14acb0bc761ce1d6f8cf92c5"
+    },
+    {
+      "path": "assets/chess/step/白_將.step",
+      "bytes": 6354114,
+      "sha256": "b3e683c2e7d3381f4d6b077d4f45f7e98660848accc32230b347b2a871c4b715"
+    },
+    {
+      "path": "assets/chess/step/白_炮.step",
+      "bytes": 5431530,
+      "sha256": "f302c1c70bfd3eabc35d22a9eff5a8bf13c20f0b9db4a8f6cff7a2a68d09e614"
+    },
+    {
+      "path": "assets/chess/step/白_象.step",
+      "bytes": 5622468,
+      "sha256": "c1595263b3ebcc765312a7c9bc69d363c24c44eb52d120baa05cec51621518bc"
+    },
+    {
+      "path": "assets/chess/step/白_車.step",
+      "bytes": 4898654,
+      "sha256": "c1d5f2a7e8deff5352296311bd14f032375587e62c820dddb2a5c37057e4f7ff"
+    },
+    {
+      "path": "assets/chess/step/白_馬.step",
+      "bytes": 4667579,
+      "sha256": "f03bab124475974a5efb21d5f11622075b17e5d67ee8285696c8f6e1b2181b14"
     },
     {
       "path": "assets/chess/step/红_仕.step",
-      "bytes": 980327,
-      "sha256": "4f89cbe46215164f80ad80d8531c9b2aa40a006fdfc4eb50e254ad129bef4072"
+      "bytes": 3261252,
+      "sha256": "dfbc2930e0ca7b574a6ed6db6f70b76ff4d9133c09cd7671bc77a10cf0f5ec62"
     },
     {
       "path": "assets/chess/step/红_兵.step",
-      "bytes": 1114160,
-      "sha256": "431246dacb38b4437ca644b86bfb759a28a0c23e7e2f1b61335599c4d46c2dce"
+      "bytes": 3516939,
+      "sha256": "8a52b2fc1dcdfa1200006b16686651e86ee6cc1ee97d9e4d68199acb10ca0ad6"
     },
     {
       "path": "assets/chess/step/红_帥.step",
-      "bytes": 1735049,
-      "sha256": "5532b5a5c05a5cc8adba96cdce477e5cef31710c7fca65b38e72d28402c7030f"
+      "bytes": 4279114,
+      "sha256": "cf2184d032fd6f1e27de390cccb5083f4df51c07110f1e719edc1f79924bc60e"
     },
     {
       "path": "assets/chess/step/红_炮.step",
-      "bytes": 1831385,
-      "sha256": "5c6ad211d3753d7d61e952cac3f654202901c3afe578b22bf527575af56ccf1f"
+      "bytes": 4641498,
+      "sha256": "df4bcffa4f6c77361de442c42700db72189274dfb667699e9fe9d820f1e78041"
     },
     {
       "path": "assets/chess/step/红_相.step",
-      "bytes": 1649365,
-      "sha256": "e4bd5cc42e2800553cbe044714d15984515679f3ca76050901396ca7f7b142f2"
+      "bytes": 4201386,
+      "sha256": "90e8118a17d9216582e05e11e603144943ae639177c21f2731bab35a6f451116"
     },
     {
       "path": "assets/chess/step/红_車.step",
-      "bytes": 1455349,
-      "sha256": "1ba2e5a614ce2fb61ef16616eee362775910b006efa0c4b038596d3b589bb34f"
+      "bytes": 4125452,
+      "sha256": "4fcda76b8a5dafffca3884a55f261311128167b6342c3813d28161c7feaf4273"
     },
     {
       "path": "assets/chess/step/红_馬.step",
-      "bytes": 1771611,
-      "sha256": "b22c80650ecc6a47fbae34e9bf8a2c9bd640384fe47e75c51521db4ebca064cd"
+      "bytes": 4397028,
+      "sha256": "b8c481909f09a361b915185a2bbecff79b922ea57cd7a79873105e2a8e2c1d63"
     },
     {
-      "path": "assets/chess/step/黑_卒.step",
-      "bytes": 1313786,
-      "sha256": "8e1d9b7aa44cbadb00c4816c76500e401b143621d1c3481b5fae2903c88a9609"
+      "path": "assets/chess/stl/白_卒.stl",
+      "bytes": 597284,
+      "sha256": "cb07c8e56325d73e7035f9cdaced402e962c74f8cf9d69fefb4264c77ec5bf1d"
     },
     {
-      "path": "assets/chess/step/黑_士.step",
-      "bytes": 692810,
-      "sha256": "9e7223e52e10fa8568d624277be8041af35c6ef1f74fb381529b06813a89a0e6"
+      "path": "assets/chess/stl/白_士.stl",
+      "bytes": 524084,
+      "sha256": "6a1b42fe4dc6d9e51476227c21b9bde5bc617444dff927652b5d934ccd94eba4"
     },
     {
-      "path": "assets/chess/step/黑_將.step",
-      "bytes": 2238931,
-      "sha256": "370e4fbee16b842a300d75bb8e1ff171981a0517b67329df3b3185ea48017b81"
+      "path": "assets/chess/stl/白_將.stl",
+      "bytes": 692884,
+      "sha256": "f7e8aa9ffb008d45ecb1836f1cea396a0ac9cd781d3e0480ade5e0c37fcd67a3"
     },
     {
-      "path": "assets/chess/step/黑_炮.step",
-      "bytes": 1831385,
-      "sha256": "5c6ad211d3753d7d61e952cac3f654202901c3afe578b22bf527575af56ccf1f"
+      "path": "assets/chess/stl/白_炮.stl",
+      "bytes": 650884,
+      "sha256": "625418775f31c14d1af514a195ecdcaeb2f18c51b186f1389a20d5f4671249f7"
     },
     {
-      "path": "assets/chess/step/黑_象.step",
-      "bytes": 1842881,
-      "sha256": "edc31579a7b1b020611d857d1a67791d47c4f3acc4ea807c5f044347493d9c87"
+      "path": "assets/chess/stl/白_象.stl",
+      "bytes": 659684,
+      "sha256": "947035c2067124c5a0a219bccb2431b88f689181741d1de9eab6458ee56deeb2"
     },
     {
-      "path": "assets/chess/step/黑_車.step",
-      "bytes": 1455351,
-      "sha256": "71700990b1b8d60d896976db1781e2ce06867114398843335782a9e1aa04c452"
+      "path": "assets/chess/stl/白_車.stl",
+      "bytes": 625684,
+      "sha256": "06e7ea089c31f5f0fce78e0bdcb5945f6437e7432c936fc63169f16014777e13"
     },
     {
-      "path": "assets/chess/step/黑_馬.step",
-      "bytes": 1771613,
-      "sha256": "9cab19303255152df3e065f448cebd174c80ed4dc02f36063e46fc8eb0194900"
+      "path": "assets/chess/stl/白_馬.stl",
+      "bytes": 614884,
+      "sha256": "59ed5cbdecccf38cbec0743bf38b4cb54da37762d60e76668f77050b83e9c8b1"
     },
     {
       "path": "assets/chess/stl/红_仕.stl",
-      "bytes": 1181784,
-      "sha256": "5a74094db41a09d4f96a058cb0f158f4b341eb5361531ef3f61fa5525f93a8ca"
+      "bytes": 548484,
+      "sha256": "efa4ba6cbb5b767973af7e8e8710cfa0845a25dbe624f5c8f9a53293740055d9"
     },
     {
       "path": "assets/chess/stl/红_兵.stl",
-      "bytes": 1259884,
-      "sha256": "67f4bc045121d7c2788f1f950ef12f4c3499679628eec37b63af0257dcbdf055"
+      "bytes": 560484,
+      "sha256": "51d2278b0d1e50d10cf15684bc0e4fbdcc74c02f6ed0d34a7fb097db463414a2"
     },
     {
       "path": "assets/chess/stl/红_帥.stl",
-      "bytes": 1556284,
-      "sha256": "d5cfde5728d095503440a0427f57d1b2bb0eb9f87a70d194ed99c73706b02a19"
+      "bytes": 596484,
+      "sha256": "1da0b5cc30be6bde243bb99919feb84187921b9e5dc647f2e57a65616cd9018d"
     },
     {
       "path": "assets/chess/stl/红_炮.stl",
-      "bytes": 1626484,
-      "sha256": "801eff9cadd0fb875e9a0931e878f09e25b73899523588e35fa824f17cef44f8"
+      "bytes": 613684,
+      "sha256": "1ff861ab159c40a3634d807c8923a459de5295dc340687ddf1348c781c741a04"
     },
     {
       "path": "assets/chess/stl/红_相.stl",
-      "bytes": 1331984,
-      "sha256": "862219e47ee532ff59af43b043c985c36ae6037078816f08c94f359ba6191d8b"
+      "bytes": 592884,
+      "sha256": "3e4d1b7f31e3d48a82c8a5126ee92129b79081155fac586b1cd705f5f0eb4a23"
     },
     {
       "path": "assets/chess/stl/红_車.stl",
-      "bytes": 1291484,
-      "sha256": "82af78bb664c5785dbdf635c8c77c46ac63b1c167d03d6f0c93b5e7fd88ede0d"
+      "bytes": 589284,
+      "sha256": "0536bd83596908d1a6e7e5bfa61c7375885ad5da965c89e8652058dadf1b904a"
     },
     {
       "path": "assets/chess/stl/红_馬.stl",
-      "bytes": 1568084,
-      "sha256": "d4ca575b823e67ddd5194ddca4d4fe9a723204db657d16141cad4f48c8d41ff0"
+      "bytes": 602084,
+      "sha256": "547a053ce6bfe08784b078caf3729e0e0b0a98df281ac6505ac7889cba7705cb"
     },
     {
-      "path": "assets/chess/stl/黑_卒.stl",
-      "bytes": 1410184,
-      "sha256": "16e47e7cc466dce4cb3a4481959cb32ed0e424ae096daf8df06b8510150064a7"
-    },
-    {
-      "path": "assets/chess/stl/黑_士.stl",
-      "bytes": 1024384,
-      "sha256": "7623230a969b90da444e77124fa6c11dd43b095de75e115a03700690392484cf"
-    },
-    {
-      "path": "assets/chess/stl/黑_將.stl",
-      "bytes": 1852784,
-      "sha256": "9a3ab83416c568c143ebe664ead6007bc2e003f615882b5cce9047e76ebab09f"
-    },
-    {
-      "path": "assets/chess/stl/黑_炮.stl",
-      "bytes": 1626484,
-      "sha256": "801eff9cadd0fb875e9a0931e878f09e25b73899523588e35fa824f17cef44f8"
-    },
-    {
-      "path": "assets/chess/stl/黑_象.stl",
-      "bytes": 1682484,
-      "sha256": "873170ee635247a410b59ce50386d3c241c50da197eb60d0454ed3293d2b3881"
-    },
-    {
-      "path": "assets/chess/stl/黑_車.stl",
-      "bytes": 1291484,
-      "sha256": "82af78bb664c5785dbdf635c8c77c46ac63b1c167d03d6f0c93b5e7fd88ede0d"
-    },
-    {
-      "path": "assets/chess/stl/黑_馬.stl",
-      "bytes": 1568084,
-      "sha256": "d4ca575b823e67ddd5194ddca4d4fe9a723204db657d16141cad4f48c8d41ff0"
+      "path": "assets/field/field.glb",
+      "bytes": 27344,
+      "sha256": "a3900e184c7d649da5095246761b2578a91aa2b8eae5d80bafcfaf2112c5deba"
     },
     {
       "path": "assets/field/field.json",
-      "bytes": 4940,
-      "sha256": "1e704dc78c7ab1fb60055c351abb99442267aa8e242ae0b0f6387385afabb751"
+      "bytes": 3035,
+      "sha256": "a6835c7d55733f2671a55525d5f9a4a124c188a2e2bcafa2acf92e050516834d"
     },
     {
       "path": "assets/field/field.obj",
@@ -245,18 +465,18 @@
     },
     {
       "path": "assets/field/field.png",
-      "bytes": 40811,
-      "sha256": "1bec12ca6b099a09b7162de15f5979cba73343b4260f7a4a5d6071990f8e998e"
+      "bytes": 21971,
+      "sha256": "5518a99748a4ea6e7459c69acbf4117afb91f84bd2031b85d0d992c061f3399f"
     },
     {
       "path": "assets/field/field.svg",
-      "bytes": 23039,
-      "sha256": "98c756073e86b869b5f9aa3a36f146f611216a94683569f57b8a0a15b0d631a3"
+      "bytes": 975,
+      "sha256": "e2e83134fe832574923790b499d35e9914c6faa39e014a4111aefac47586dfa6"
     },
     {
       "path": "assets/field/preview.png",
-      "bytes": 24539,
-      "sha256": "ec1687788cfe58661fea4dc00c925776f52a5cf3e16499364fd5b885948fba9a"
+      "bytes": 96677,
+      "sha256": "6fd18c491d84467e8e12bca28b94883cf0edec161b1d7409e009d8971a44ee2f"
     },
     {
       "path": "assets/imu_mount/build_imu_mount.py",
@@ -285,43 +505,53 @@
     },
     {
       "path": "assets/pusher/arcs.json",
-      "bytes": 739,
-      "sha256": "440151fce0434f7c6b609973e3cdcd19e3d15e1a1ed7efaab7f3c6889fb93ed8"
+      "bytes": 786,
+      "sha256": "5e4f1aff9dc8af48f773b73218ec98bcd743abe90e3f6ce64fad968e9d3208ed"
     },
     {
       "path": "assets/pusher/build_pusher.py",
-      "bytes": 7766,
-      "sha256": "20b6beaf3af183755f2bdbc785da78d0180853fe83482e8ec73690bed4c71fef"
+      "bytes": 7596,
+      "sha256": "ea56f130e90ecccedfbd5eb73df50ae8f4ba9c8b7dd6b6ef89d4d554e20dd95a"
+    },
+    {
+      "path": "assets/pusher/build_simulation.py",
+      "bytes": 3715,
+      "sha256": "0787375b34c3782043b9051ebd11ef5067c56255890e0bbaf283b68c74913b75"
     },
     {
       "path": "assets/pusher/parameters.json",
-      "bytes": 704,
-      "sha256": "ba477b94423051c133cbdcd0711b0f089c0e8746ceae5b87b000efddb6c128d1"
+      "bytes": 844,
+      "sha256": "2850d6be94057c054434a9682748b5246117da6353b60c406a304be42a0438ea"
     },
     {
       "path": "assets/pusher/preview.png",
-      "bytes": 105185,
-      "sha256": "3a305b3282936d1509ef5c7dbb4a1b4a993fff3fab656f855bb00869fc728d54"
+      "bytes": 92866,
+      "sha256": "3614674fa29b96ae209bc0cbb6426302b16e20ab58d1bb93ad95ae5b1a6b09a3"
     },
     {
       "path": "assets/pusher/pusher.obj",
-      "bytes": 62873,
-      "sha256": "4de6c4a051a0b7ec5a3284de2756845a8d9c457e2d50d7c075708a17ad2cf60d"
+      "bytes": 112707,
+      "sha256": "64e2e761340a7ad59bf8f3a80d761880dc2da96d709e3b71cabe60a2c5d657c5"
     },
     {
       "path": "assets/pusher/pusher.step",
-      "bytes": 175258,
-      "sha256": "2f4d970d9bb2129073cdd43493c9d4f605a4eeba0136aa974297f661dd2a242a"
+      "bytes": 155172,
+      "sha256": "8f112ca19669cdeee10a61428e7c0ccf7b177670d3b944661fe2ad364ee49a77"
     },
     {
       "path": "assets/pusher/pusher.stl",
-      "bytes": 100184,
-      "sha256": "6ee3c81a95dbd538c6567fc7a107984e861b7e7dcf5281cf959762b5f47fd7bb"
+      "bytes": 172184,
+      "sha256": "e42c91daa31e4fcf6927462f2f025ebe3de18582356884284b2cb485db9b7be1"
     },
     {
       "path": "assets/pusher/reinforcement.json",
-      "bytes": 529,
-      "sha256": "2754b60eef60c8c14ec7d79e182ff3af5fa4430867eb17023512ff23e8427015"
+      "bytes": 3092,
+      "sha256": "e07add78d417f263c1f48b5fbb1a08c3273106e460a0104a41a361734510338f"
+    },
+    {
+      "path": "assets/pusher/render_preview.py",
+      "bytes": 4719,
+      "sha256": "2fbcfaedb69bc32c8c6cc23048c59c04f0253306e3d47ebc1bedcb8a117fa645"
     },
     {
       "path": "assets/robot/preview.png",
@@ -335,8 +565,8 @@
     },
     {
       "path": "assets/robot/simulation.json",
-      "bytes": 66545,
-      "sha256": "76e803ba722b9ca61f5b4692d702b51067f5359972b0c5ec44403f0fa263770b"
+      "bytes": 76618,
+      "sha256": "67a9b035593d536790deb21710249f22a257138b4fecd731ddf4535499ea9248"
     },
     {
       "path": "assets/robot/visual_board.obj",
@@ -359,9 +589,219 @@
       "sha256": "8199b2bf559698f24212293d7fc850511166d6a81247e7427ec86f9074aafbd4"
     },
     {
-      "path": "assets/pusher/build_simulation.py",
-      "bytes": 3808,
-      "sha256": "0d6bd44836a63d7d3ed72f20744e30761135b1ad8bde0ccf08c363c9c09a42a0"
+      "path": "sim/resources/chess/chess_manifest.json",
+      "bytes": 42979,
+      "sha256": "5b3174c7cb9bc014fbf5081fd8f531d572a55de5c5faab6d2003aba76b6f74b6"
+    },
+    {
+      "path": "sim/resources/chess/visual_00.obj",
+      "bytes": 413855,
+      "sha256": "480e3da9b0b990a6054b1f60283ba95c2764338654436d7e15ce43015ec9c8ac"
+    },
+    {
+      "path": "sim/resources/chess/visual_01.obj",
+      "bytes": 135552,
+      "sha256": "e7476b390532bd1bbdb329133c89acd2842c92f0915a75bf6d3d7d2e472ac613"
+    },
+    {
+      "path": "sim/resources/chess/visual_02.obj",
+      "bytes": 40197,
+      "sha256": "b5ab453c0a4b8616e5e93261a266dc57e03117b2e8bdc7eacdd580183395eb29"
+    },
+    {
+      "path": "sim/resources/chess/visual_03.obj",
+      "bytes": 380155,
+      "sha256": "0dee3b4b82faa881f6fcbfff845c4150c589b8a3a7d920457d22ef2a825e8baf"
+    },
+    {
+      "path": "sim/resources/chess/visual_04.obj",
+      "bytes": 101493,
+      "sha256": "e92898d4fd9966d82b41528d257cb37382ae988df3ba7ebe6a2bc76ef4b235ef"
+    },
+    {
+      "path": "sim/resources/chess/visual_05.obj",
+      "bytes": 40198,
+      "sha256": "2c4ebcad843995e53b50d515bfcd4c1d0c8fd09c0fd2a48398d33d0fe85a60ec"
+    },
+    {
+      "path": "sim/resources/chess/visual_06.obj",
+      "bytes": 411331,
+      "sha256": "16419408a9bcb14daddae35399fc4a01e9e7c7098df3c6281d78a1347c3162fe"
+    },
+    {
+      "path": "sim/resources/chess/visual_07.obj",
+      "bytes": 132926,
+      "sha256": "51aaf5fef527099c0291c6080ea1867ad410b090daeb6095bce95f34dcbd6dcd"
+    },
+    {
+      "path": "sim/resources/chess/visual_08.obj",
+      "bytes": 40199,
+      "sha256": "733dd1689b8e7ab9a62d5693d4598a3b4f76ce86a25daf2379283c80208d0cfb"
+    },
+    {
+      "path": "sim/resources/chess/visual_09.obj",
+      "bytes": 408771,
+      "sha256": "60eb1db2c334899658c886daf2c7f740c526d0fa61af626c9ac3626a895c2d2c"
+    },
+    {
+      "path": "sim/resources/chess/visual_10.obj",
+      "bytes": 130480,
+      "sha256": "4453b2d654a6e7b3dc0fe092f03db00ee356e2ad6de37a4bbf2b707d2d10a2f0"
+    },
+    {
+      "path": "sim/resources/chess/visual_11.obj",
+      "bytes": 40196,
+      "sha256": "a9f790ba7890494bbef93c4d41e19fc6dbd70384c6b856ac8dac2f69540eca85"
+    },
+    {
+      "path": "sim/resources/chess/visual_12.obj",
+      "bytes": 418175,
+      "sha256": "f29fefcfcb16ecc78152d309bcbafc9ae8393909452d8c4a011c5515084e669a"
+    },
+    {
+      "path": "sim/resources/chess/visual_13.obj",
+      "bytes": 139803,
+      "sha256": "f2f10e2b79051a8b070763940be96394efc6400a44a598b21d5c5f154981debd"
+    },
+    {
+      "path": "sim/resources/chess/visual_14.obj",
+      "bytes": 40200,
+      "sha256": "dd86a248dfa96f3ae51b53216eeeb96ef0178492609c92d626f5ad00ca2531f9"
+    },
+    {
+      "path": "sim/resources/chess/visual_15.obj",
+      "bytes": 426027,
+      "sha256": "0e06aee5e6bfe318c55bacce3a48c41a5e621cc3db65a1b2722eaeb488173216"
+    },
+    {
+      "path": "sim/resources/chess/visual_16.obj",
+      "bytes": 147493,
+      "sha256": "1f9866ecd544198b958ca4b51f98b5f04499aaaec7ce375f0d1579962300567d"
+    },
+    {
+      "path": "sim/resources/chess/visual_17.obj",
+      "bytes": 40196,
+      "sha256": "a883dbececbc239e707992b4d4a6b0d7742340bb6926185c4439ea7b246a6d3f"
+    },
+    {
+      "path": "sim/resources/chess/visual_18.obj",
+      "bytes": 388719,
+      "sha256": "20637c7bf359d7e1f5a8aa45b9a8e9095e4c4063c1f5b2b3f95b1fe7c6ae33eb"
+    },
+    {
+      "path": "sim/resources/chess/visual_19.obj",
+      "bytes": 110299,
+      "sha256": "f505496888bb066a9ff9271319eb24d06c56e1aa2670cfd4c65b01d15fd7021d"
+    },
+    {
+      "path": "sim/resources/chess/visual_20.obj",
+      "bytes": 40196,
+      "sha256": "0be7f856767c2089617ef709d6cc046e50099300d351bd3a7efbb7edd739eb63"
+    },
+    {
+      "path": "sim/resources/chess/visual_21.obj",
+      "bytes": 481839,
+      "sha256": "6aac6694502eec4b4d537ba322d515086992299d8133fd2aba9f783efb9387fb"
+    },
+    {
+      "path": "sim/resources/chess/visual_22.obj",
+      "bytes": 203039,
+      "sha256": "afbced70ca25d511223e1a20678d696da422f03942c0c2a648cddc5afeeaa084"
+    },
+    {
+      "path": "sim/resources/chess/visual_23.obj",
+      "bytes": 40200,
+      "sha256": "4606af363f3c8ae96254b091b312803165d7ba77e52f5425144de5a129a51085"
+    },
+    {
+      "path": "sim/resources/chess/visual_24.obj",
+      "bytes": 363039,
+      "sha256": "6abb2bf761b363565d511165c49c6dccfa9396abd7031cf29bf6d177918675b0"
+    },
+    {
+      "path": "sim/resources/chess/visual_25.obj",
+      "bytes": 84480,
+      "sha256": "9db87110b89eb4c3ad18e3b1203d316c375e0ae9c3a92405651bbd0c5190563b"
+    },
+    {
+      "path": "sim/resources/chess/visual_26.obj",
+      "bytes": 40195,
+      "sha256": "90182c246fd9a673593366ae18246c154914a4ddc4fe043388b9856b14b771d6"
+    },
+    {
+      "path": "sim/resources/chess/visual_27.obj",
+      "bytes": 458707,
+      "sha256": "86489f5050150b415bc13d8845ed69eb4b3454ad97d0091620377e0806d6b8bb"
+    },
+    {
+      "path": "sim/resources/chess/visual_28.obj",
+      "bytes": 181040,
+      "sha256": "1292934f03164e3ca8f19b09cde245226f922e43bfe37178a07a5d06fd94d36b"
+    },
+    {
+      "path": "sim/resources/chess/visual_29.obj",
+      "bytes": 40196,
+      "sha256": "60047c120af499466ef5ec4f5198f77ddbd7cda6830f7eacf0837b41aeb301b9"
+    },
+    {
+      "path": "sim/resources/chess/visual_30.obj",
+      "bytes": 434395,
+      "sha256": "9758b58767ab742e4c8c2546a97a16cebe1c7df0ba30d7034a424cb94dd2017b"
+    },
+    {
+      "path": "sim/resources/chess/visual_31.obj",
+      "bytes": 156485,
+      "sha256": "c5ef87e05feb3027fb8859f9ad7a3178dde4ba975a561bd5af591bd494158dea"
+    },
+    {
+      "path": "sim/resources/chess/visual_32.obj",
+      "bytes": 40199,
+      "sha256": "0b3dbbaa02e8e7a7f09d302b08cb354edb944384c138ece5b1fa9a69bab0c612"
+    },
+    {
+      "path": "sim/resources/chess/visual_33.obj",
+      "bytes": 427039,
+      "sha256": "b059d4e41c7428f021c32dbe71f51f4e25b850b192b44e796a2d9371754289e7"
+    },
+    {
+      "path": "sim/resources/chess/visual_34.obj",
+      "bytes": 148777,
+      "sha256": "f57977c0155223e2309d6a4defe16d0df888a6add0c3a5189a14568a671e5925"
+    },
+    {
+      "path": "sim/resources/chess/visual_35.obj",
+      "bytes": 40200,
+      "sha256": "5fad5521e3e5f4a163a4bd88f8d7d0d44e5e78177bfb36c3217b5860082301f0"
+    },
+    {
+      "path": "sim/resources/chess/visual_36.obj",
+      "bytes": 452227,
+      "sha256": "a85ecfdbdc4a4a4c5fe44527c38bbedf1926bb9fc138d4f52a69a8042dc40ab9"
+    },
+    {
+      "path": "sim/resources/chess/visual_37.obj",
+      "bytes": 173807,
+      "sha256": "51bfdf4d21e7d3575d6249222a414dd4062a246f78c316fb2edd533510993d82"
+    },
+    {
+      "path": "sim/resources/chess/visual_38.obj",
+      "bytes": 40196,
+      "sha256": "a43a155bf94ea99b9ec479ccdc43561033865fe613a1a42f6aa1175e27f5c954"
+    },
+    {
+      "path": "sim/resources/chess/visual_39.obj",
+      "bytes": 414315,
+      "sha256": "a9c7822803914e48484c1531d45de9adc95a036b82933745298e5921421481fd"
+    },
+    {
+      "path": "sim/resources/chess/visual_40.obj",
+      "bytes": 136140,
+      "sha256": "44ff6acb7781b6f20b73079aa1fa90e4f375b1df07ed66012a1991849989d76a"
+    },
+    {
+      "path": "sim/resources/chess/visual_41.obj",
+      "bytes": 40197,
+      "sha256": "d30da56f0960534909dfcd88f799429b445fdc71d6e169fa29dfcfaa03688995"
     }
   ]
 }

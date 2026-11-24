@@ -1,236 +1,137 @@
 {
-  "schema": 1,
-  "source_file_name": "智能车场地_尺寸图.pdf",
-  "source_pdf_sha256": "174efd78602f94cac3683d8db084e6f290c97d8233c940c6df1d71056f9abb9e",
-  "source_page_index": 0,
-  "source_field_crop_pt": [
-    68.03150177001953,
-    182.3623046875,
-    776.69287109375,
-    654.8031616210938
-  ],
-  "appearance_override": {
-    "source_PDF_background": "#e9e9e9",
-    "requested_ground_diffuse": "#ffffff",
-    "requested_by_user": true,
-    "other_printed_regions_unchanged": true
-  },
+  "schema": 2,
+  "source_file_name": "第十五届全国大学生光电设计大赛通知（第一轮）.pdf",
+  "source_pdf_sha256": "919c641486199541b51d6dd6730e8eda9e628bc282546174f0a0550a1456e754",
+  "source_page_index": 3,
+  "source_figure": "图1 场地平面图（区赛参考细则）",
   "field_size_m": [
     3.0,
     2.0
   ],
-  "origin": "bottom-left; world X right, Y up; PNG row0 is world Y=2m",
+  "origin": "Team A start corner; X toward team B side, Y toward team B start corner; PNG row 0 is Y=2 m",
+  "wall_height_mm": 300,
+  "wall_thickness_mm": 20,
+  "surface_z_mm": 0,
   "texture_pixels": [
     3000,
     2000
   ],
   "texture_resolution_mm_per_pixel": 1,
-  "render_engine_started": false,
-  "source_paths_kept": [
-    0,
-    1,
-    2,
-    3,
-    4,
-    5,
-    6,
-    7,
-    8,
-    9,
-    10
-  ],
-  "source_paths_excluded": [
-    11,
-    12,
-    13,
-    14,
-    15,
-    16,
-    17,
-    18,
-    19,
-    20,
-    21,
-    22,
-    23,
-    24,
-    25,
-    26,
-    27,
-    28,
-    29,
+  "background_hex": "#ffffff",
+  "wall_hex": "#e2e0d9",
+  "outer_border_hex": "#383332",
+  "line_widths_mm": {
+    "outer_border": 4,
+    "zone_dashed": 4,
+    "goal_outline": 5,
+    "start_outline": 5
+  },
+  "dash_pattern_mm": [
     30,
-    31,
-    32,
-    33,
-    34,
-    35,
-    36,
-    37,
-    38,
-    39,
-    40,
-    41,
-    42,
-    43,
-    44,
-    45,
-    46,
-    47,
-    48,
-    49,
-    50
-  ],
-  "excluded_content": [
-    "all PDF text",
-    "all dimensional lines and ticks",
-    "title, table and printing instructions",
-    "goal-frame position schematics paths11..16; PDF note5 says printing not confirmed"
+    20
   ],
   "regions": [
     {
-      "name": "start_A",
-      "source_path_index": 1,
+      "name": "side_A",
       "xywh_mm": [
         0,
         0,
-        610,
-        420
+        400,
+        2000
       ],
-      "PDF_measured_xywh_mm": [
-        0.0,
-        0.0,
-        610.000113795818,
-        420.00002325439885
+      "fill_hex": "#f8e4e3"
+    },
+    {
+      "name": "side_B",
+      "xywh_mm": [
+        2600,
+        0,
+        400,
+        2000
       ],
-      "max_dimension_error_mm": 0.00011379581803794281,
-      "fill_hex": "#dce5f8",
-      "stroke_hex": "#dce5f8"
+      "fill_hex": "#e2eff7"
+    },
+    {
+      "name": "start_A",
+      "xywh_mm": [
+        50,
+        50,
+        300,
+        300
+      ],
+      "fill_hex": "#f8e4e3",
+      "stroke_hex": "#a54440"
     },
     {
       "name": "start_B",
-      "source_path_index": 2,
       "xywh_mm": [
-        2350,
-        1580,
-        650,
-        420
+        2650,
+        1650,
+        300,
+        300
       ],
-      "PDF_measured_xywh_mm": [
-        2350.000096355021,
-        1580.00049351002,
-        649.9999036449791,
-        420.00002325439885
-      ],
-      "max_dimension_error_mm": 0.0004935100200782472,
-      "fill_hex": "#f9dddd",
-      "stroke_hex": "#f9dddd"
-    },
-    {
-      "name": "pieces",
-      "source_path_index": 3,
-      "xywh_mm": [
-        1200,
-        740,
-        600,
-        530
-      ],
-      "PDF_measured_xywh_mm": [
-        1200.0001873270799,
-        740.0003178101177,
-        600.0001098124261,
-        530.0003061829183
-      ],
-      "max_dimension_error_mm": 0.00031781011773546197,
-      "fill_hex": "#e1e1e1",
-      "stroke_hex": "#333333"
+      "fill_hex": "#e2eff7",
+      "stroke_hex": "#34388b"
     },
     {
       "name": "goal_A",
-      "source_path_index": 9,
       "xywh_mm": [
         0,
-        420,
-        110,
-        1150
+        700,
+        400,
+        600
       ],
-      "PDF_measured_xywh_mm": [
-        0.0,
-        420.00002325439885,
-        109.99997922176644,
-        1150.0000452168865
-      ],
-      "max_dimension_error_mm": 4.5216886519483523e-05,
-      "fill_hex": "#e5efff",
-      "stroke_hex": "#1553a0"
+      "fill_hex": "#fcc8cd",
+      "stroke_hex": "#533e40"
     },
     {
       "name": "goal_B",
-      "source_path_index": 10,
       "xywh_mm": [
-        2890,
-        420,
-        110,
-        1150
+        2600,
+        700,
+        400,
+        600
       ],
-      "PDF_measured_xywh_mm": [
-        2890.0002468626403,
-        420.00002325439885,
-        110.00001151953882,
-        1150.0000452168865
+      "fill_hex": "#ced0f8",
+      "stroke_hex": "#383b59"
+    },
+    {
+      "name": "pieces",
+      "xywh_mm": [
+        1200,
+        700,
+        600,
+        600
       ],
-      "max_dimension_error_mm": 0.0002468626403242524,
-      "fill_hex": "#ffeded",
-      "stroke_hex": "#c42320"
+      "stroke_hex": "#303035",
+      "dashed": true
     }
   ],
-  "line_widths_mm": {
-    "outer_border": 5.503333333333332,
-    "zone_dashed": 3.3866666666666663,
-    "goal_outline": 5.079999999999999
-  },
-  "dash_pattern_mm": [
-    16.93333333333333,
-    12.699999999999998
+  "assumptions": [
+    "图1未标发车区距相邻围挡内缘的空隙，按图示约50 mm，采用对称布置。",
+    "挡板厚20 mm是仿真值，并向场地外侧布置。比赛只规定内净尺寸与挡板高度。",
+    "配色取图1近似色，线宽和虚线节距为建模值。所有区域均与赛面齐平。"
   ],
-  "dimension_max_error_mm": 0.0004935100200782472,
-  "scoring_unchanged_xy_m": [
-    [
-      2.7,
-      0.5
-    ],
-    [
-      3,
-      1.5
-    ]
-  ],
-  "PDF_goal_B_xy_m": [
-    [
-      2.89,
-      0.42
-    ],
-    [
-      3,
-      1.57
-    ]
-  ],
-  "goal_discrepancy": "Artwork follows PDF; experiment scoring remains unchanged, not an official-rule update.",
-  "scale_note": "Visible header and measured vectors are1:12; extracted hidden obsolete1:10 text is not used. PDF is marked communication/draft despite user adoption.",
-  "texture_UV_reference": "https://github.com/google-deepmind/mujoco/blob/3.3.7/src/user/user_mesh.cc#L1027-L1029",
-  "PNG_load_reference": "https://github.com/google-deepmind/mujoco/blob/3.3.7/src/user/user_objects.cc#L4661-L4674",
   "files": {
-    "field.svg": {
-      "bytes": 23039,
-      "sha256": "98c756073e86b869b5f9aa3a36f146f611216a94683569f57b8a0a15b0d631a3"
-    },
     "field.obj": {
       "bytes": 518,
       "sha256": "14880c7b6c4b1c8635ce9877686b9825671c806814c63bfc58518a527af1ed1a"
     },
     "field.png": {
-      "bytes": 40811,
-      "sha256": "1bec12ca6b099a09b7162de15f5979cba73343b4260f7a4a5d6071990f8e998e"
+      "bytes": 21971,
+      "sha256": "5518a99748a4ea6e7459c69acbf4117afb91f84bd2031b85d0d992c061f3399f"
+    },
+    "field.svg": {
+      "bytes": 975,
+      "sha256": "e2e83134fe832574923790b499d35e9914c6faa39e014a4111aefac47586dfa6"
+    },
+    "field.glb": {
+      "bytes": 27344,
+      "sha256": "a3900e184c7d649da5095246761b2578a91aa2b8eae5d80bafcfaf2112c5deba"
+    },
+    "preview.png": {
+      "bytes": 96677,
+      "sha256": "6fd18c491d84467e8e12bca28b94883cf0edec161b1d7409e009d8971a44ee2f"
     }
-  },
-  "publication_note": "Published with project owner authorization; original source attribution retained."
+  }
 }

@@ -1,5 +1,7 @@
 """Private evaluator. Never imported by policy worker. Exact cylinder support for convex polygons."""
 import numpy as np
+from field_spec import FIELD_WIDTH_M, FIELD_DEPTH_M, bounds
+from piece_spec import HALF_HEIGHT_M, RADIUS_M, RANDOM_PAIR_GAP_M, SPAWN_Z_M, WALL_GAP_M
 
 def polygon_planes(poly):
     p=np.asarray(poly,float)
@@ -9,12 +11,12 @@ def polygon_planes(poly):
     n=np.column_stack([e[:,1],-e[:,0]]); n/=np.linalg.norm(n,axis=1)[:,None]
     return n,np.sum(n*p,axis=1)
 
-def contains(pos,R,poly,r=.0235,h=.0075):
+def contains(pos,R,poly,r=RADIUS_M,h=HALF_HEIGHT_M):
     n,b=polygon_planes(poly);n3=np.column_stack([n,np.zeros(len(n))]);axis=np.asarray(R)[:,2]
     axial=n3@axis; support=h*np.abs(axial)+r*np.sqrt(np.maximum(0,1-axial**2))
     return bool(np.all(n@np.asarray(pos)[:2]+support<=b+1e-12))
 
-def intersects_upright(xy,poly,r=.0235):
+def intersects_upright(xy,poly,r=RADIUS_M):
     # Separation of circle from a convex polygon, with vertex distance handling.
     n,b=polygon_planes(poly);p=np.asarray(poly);xy=np.asarray(xy)
     if np.all(n@xy<=b):return True
@@ -38,7 +40,7 @@ class Referee:
                 inside_all|=np.all(positions[:,:2]@normals.T<=bounds+1e-12,axis=1)
                 continue
             n3=np.column_stack([normals,np.zeros(len(normals))]);axial=axes@n3.T
-            support=.0075*np.abs(axial)+.0235*np.sqrt(np.maximum(0,1-axial**2))
+            support=HALF_HEIGHT_M*np.abs(axial)+RADIUS_M*np.sqrt(np.maximum(0,1-axial**2))
             inside_all|=np.all(positions[:,:2]@normals.T+support<=bounds+1e-12,axis=1)
         for i,inside in enumerate(inside_all):
             if not inside:self.since[i]=None;self.active.discard(i)
@@ -61,10 +63,25 @@ class Referee:
 def sample_layout(seed,goals,n=32,car=(1.5,1.0)):
     rng=np.random.default_rng(seed);pts=[]
     for _ in range(100000):
-        p=rng.uniform([.03,.03],[2.97,1.97])
+        edge=RADIUS_M+WALL_GAP_M
+        p=rng.uniform([edge,edge],[FIELD_WIDTH_M-edge,FIELD_DEPTH_M-edge])
         if any(intersects_upright(p,g) for g in goals):continue
         if np.linalg.norm(p-np.asarray(car))<.27:continue
-        if any(np.linalg.norm(p-q[:2])<.055 for q in pts):continue
-        pts.append([*p,.0076])
+        if any(np.linalg.norm(p-q[:2])<2*RADIUS_M+RANDOM_PAIR_GAP_M for q in pts):continue
+        pts.append([*p,SPAWN_Z_M])
         if len(pts)==n:return np.array(pts)
     raise RuntimeError('layout rejection exhausted')
+
+
+def sample_central_layout(seed, n=32, gap=.003):
+    rng = np.random.default_rng(seed)
+    x0, y0, x1, y1 = bounds("pieces")
+    points = []
+    for _ in range(25000):
+        p = rng.uniform([x0+RADIUS_M, y0+RADIUS_M], [x1-RADIUS_M, y1-RADIUS_M])
+        if any(np.linalg.norm(p-q) < 2*RADIUS_M+gap for q in points):
+            continue
+        points.append(p)
+        if len(points) == n:
+            return np.array(points)
+    raise RuntimeError("central field layout rejection exhausted")

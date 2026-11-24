@@ -1,31 +1,28 @@
 from pathlib import Path
 import os,sys,json,subprocess,tempfile,math,itertools
 os.environ.setdefault('MUJOCO_GL','glfw');sim=Path(__file__).resolve().parent;sys.path.insert(0,str(sim/'runtime'));import numpy as np,cv2,mujoco
-from goal_slots import CENTERS, plan, delivery_path
+from goal_slots import FIELD_CENTERS as CENTERS, plan, delivery_path
 from physics import Physics
 from room_appearance import PRESETS
-from referee import Referee
+from referee import Referee, sample_central_layout
+from field_spec import GOALS, GOAL_A_Y0, GOAL_A_Y1, GOAL_A_X1, center
 from camera import Camera, prepare,postprocess
 from core import wrap,WHEEL
+from piece_spec import HALF_HEIGHT_M, RADIUS_M, SPAWN_Z_M
 def make_board(seed):
- rng=np.random.default_rng(seed)
- start=[.305,.21]
- points=[start]
- while len(points)<33:
-  q=rng.uniform([.16,.08],[2.84,1.92]).tolist()
-  if all(math.dist(q,other)>.12 for other in points):points.append(q)
- return dict(seed=seed,start=start,points=points[1:])
+ return dict(seed=seed,start=list(center("start_A")),points=sample_central_layout(seed).tolist())
 board=make_board(int(os.environ.get('BOARD_SEED','77')))
 appearance=os.environ.get('SIM_APPEARANCE','baseline')
 if appearance not in PRESETS:raise SystemExit(f"SIM_APPEARANCE must be one of: {', '.join(PRESETS)}")
-run_name=f"sim-seed-{board['seed']}"+('' if appearance=='baseline' else f'-{appearance}')
+run_name=f"sim-match-field-seed-{board['seed']}"+('' if appearance=='baseline' else f'-{appearance}')
 reports=sim.parent.parent/'三维仿真/报告'/run_name
-out=sim.parent.parent/'三维仿真/视频'/run_name;c=dict(camera=json.loads((sim/'resources/camera/camera_profile.json').read_text()),goals=[[[0,.42],[.11,.42],[.11,1.57],[0,1.57]]]);c['goals']=c['goals'][:1];grid=np.array([(x/10+.05,y/10+.05) for x in range(30) for y in range(20)])
+out=sim.parent.parent/'三维仿真/视频'/run_name;c=dict(camera=json.loads((sim/'resources/camera/camera_profile.json').read_text()),goals=[GOALS[0]]);grid=np.array([(x/10+.05,y/10+.05) for x in range(30) for y in range(20)])
 # Enclose tilted chess cylinders and every pusher collision primitive by spheres.
 cad=json.loads((sim.parent/'assets/robot/simulation.json').read_text())
-Rplate=max([math.dist(q,(0,0,0)) for part in cad['convex_parts'] for q in part['vertices']]+[math.hypot(*cap['position'][:2])+cap['radius']+abs(cap['position'][2])+cap['half_height'] for cap in cad['tip_caps']]);Rpiece=math.hypot(.0235,.0075);ZONE=.11;SWEEP=Rplate+2*Rpiece; SAFE=SWEEP+.035
+Rplate=max([math.dist(q,(0,0,0)) for part in cad['convex_parts'] for q in part['vertices']]+[math.hypot(*cap['position'][:2])+cap['radius']+abs(cap['position'][2])+cap['half_height'] for cap in cad['tip_caps']]);Rpiece=math.hypot(RADIUS_M,HALF_HEIGHT_M);ZONE=GOAL_A_X1;SWEEP=Rplate+2*Rpiece; SAFE=SWEEP+.035
+FIELD_ENTRY_HALF_WIDTH = (GOAL_A_Y1-GOAL_A_Y0)/(2*len(CENTERS)) - RADIUS_M - .020
 # Even if only the rim touches the goal, the opposite rim can project a full diameter outside.
-def clearance(p):return math.hypot(max(0,p[0]-ZONE,-p[0]),max(0,.42-p[1],p[1]-1.57))-SWEEP
+def clearance(p):return math.hypot(max(0,p[0]-ZONE,-p[0]),max(0,GOAL_A_Y0-p[1],p[1]-GOAL_A_Y1))-SWEEP
 # Wall-normal extent of the working blade, including its rounded tips.
 blade=np.array([q[:2] for a in cad['convex_parts'] if a['part']=='blade' for q in a['vertices']]);tips=cad['tip_caps']; STOPPING=.018; WALL_BUFFER=.022; LINE_MARGIN=.003
 class PushEnd:
@@ -41,7 +38,7 @@ class PushEnd:
 class Brain:
  def __init__(self,solver):
   self.slot_views=[];self.recounts=[];self.cargo=set();self.review={};self.review_log=[];self.credited=False
-  self.counts=[0]*8;self.slot=None;self.s=solver;self.cam=Camera(c,sim/'resources/detector');self.db={};self.seq=[];self.goal=None;self.load=0;self.prefix=0.;self.ref=-1;self.odo=0.;self.next_plan=0.;self.map_events=[];self.prev=None;self.hold=None;self.cover=np.zeros(len(grid),bool);self.plans=0;self.boxes=[];self.scan=None;self.phase=None;self.delivery=[];self.release=None;self.target_track=None;self.target_best=math.inf;self.target_progress=0.;self.escape_start=None;self.escape_count=0;self.end=PushEnd();self.end.reason=None
+  self.counts=[0]*len(CENTERS);self.slot=None;self.s=solver;self.cam=Camera(c,sim/'resources/detector');self.db={};self.seq=[];self.goal=None;self.load=0;self.prefix=0.;self.ref=-1;self.odo=0.;self.next_plan=0.;self.map_events=[];self.prev=None;self.hold=None;self.cover=np.zeros(len(grid),bool);self.plans=0;self.boxes=[];self.scan=None;self.phase=None;self.delivery=[];self.release=None;self.target_track=None;self.target_best=math.inf;self.target_progress=0.;self.escape_start=None;self.escape_count=0;self.end=PushEnd();self.end.reason=None
  def perceive(self,rgb,p,h,t):
   mat,tf=prepare(rgb[:,:,::-1],(416,320));raw,_=self.cam.detector.forward(mat);self.boxes=postprocess(raw,tf);used=set();cc=c['camera'];rot=np.array([[math.cos(h),-math.sin(h)],[math.sin(h),math.cos(h)]]);lens=p+rot@cc['camera_base_position_m'][:2];pose=np.r_[p,h];self.cover|=self.visible(p,h)
   measurements=[];inside=set();review_used=set();slot_centers=[]
@@ -50,10 +47,10 @@ class Brain:
    if min(x,y)<1 or u>638 or v>478:continue
    q=self.cam.project([[(x+u)/2,y]],pose)[0]
    if q is None:continue
-   q=q-.0235*(q-lens)/max(1e-9,np.linalg.norm(q-lens));
-   if q[0]<=ZONE and .42<=q[1]<=1.57:
+   q=q-RADIUS_M*(q-lens)/max(1e-9,np.linalg.norm(q-lens));
+   if q[0]<=ZONE and GOAL_A_Y0<=q[1]<=GOAL_A_Y1:
     # Temporary count in a single image, never a goal-interior world-map track.
-    if self.phase=='BACK' and q[0]>=0 and abs(q[1]-CENTERS[self.slot])<=(1.57-.42)/16 and all(np.linalg.norm(q-z)>.028 for z in slot_centers):slot_centers.append(q)
+    if self.phase=='BACK' and q[0]>=0 and abs(q[1]-CENTERS[self.slot])<=((GOAL_A_Y1-GOAL_A_Y0)/(2*len(CENTERS))) and all(np.linalg.norm(q-z)>.028 for z in slot_centers):slot_centers.append(q)
     if q[0]<0 or np.linalg.norm(q-p)>1.5:continue
     inside.add(len(measurements))
    else:
@@ -89,8 +86,8 @@ class Brain:
     v['cleared']=True;self.map_events.append(dict(t=t,track=k,xy=v['p'].tolist(),reason='visible empty floor'))
   if self.phase=='BACK' and p[0]>=ZONE+SAFE+.025:
    # Only recount a fully framed slot: project its four corners into the actual image.
-   half=(1.57-.42)/16;yy=CENTERS[self.slot]
-   corners=np.array([[x,y,.015] for x in (0,ZONE) for y in (yy-half,yy+half)])
+   half=((GOAL_A_Y1-GOAL_A_Y0)/(2*len(CENTERS)));yy=CENTERS[self.slot]
+   corners=np.array([[x,y,2*HALF_HEIGHT_M] for x in (0,ZONE) for y in (yy-half,yy+half)])
    corners[:,:2]=(corners[:,:2]-p)@rot
    xyz=(corners-cc['camera_base_position_m'])@np.array(cc['R_ground_optical'])
    uv,_=cv2.projectPoints(xyz,np.zeros(3),np.zeros(3),np.asarray(cc['K']),np.asarray(cc['opencv_distortion']))
@@ -101,8 +98,8 @@ class Brain:
   local=(q-p)@rot
   if not (.24<local[0]<1. and np.linalg.norm(local)<1.):return False
   cc=c['camera'];angles=np.arange(8)*math.pi/4
-  ring=.0235*np.column_stack([np.cos(angles),np.sin(angles)])+local
-  pts=np.vstack([np.column_stack([ring,np.full(8,z)]) for z in (0,.015)])
+  ring=RADIUS_M*np.column_stack([np.cos(angles),np.sin(angles)])+local
+  pts=np.vstack([np.column_stack([ring,np.full(8,z)]) for z in (0,2*HALF_HEIGHT_M)])
   rays=(pts-cc['camera_base_position_m'])@np.asarray(cc['R_ground_optical'])
   if min(rays[:,2])<=0:return False
   uv=cv2.projectPoints(rays,np.zeros(3),np.zeros(3),np.asarray(cc['K']),np.asarray(cc['opencv_distortion']))[0].reshape(-1,2)
@@ -129,7 +126,7 @@ class Brain:
    debit=False
    if len(near)==1 and near[0] in self.cargo and self.credited:
     k=near[0];xy,last=snapshot[k]
-    outside=math.hypot(max(0.,q[0]-ZONE),max(0.,.42-q[1],q[1]-1.57))
+    outside=math.hypot(max(0.,q[0]-ZONE),max(0.,GOAL_A_Y0-q[1],q[1]-GOAL_A_Y1))
     if np.linalg.norm(q-xy)<.035 and self.hold-last<1. and outside>.015 and sum(np.linalg.norm(z-xy)<.065 for z in observations)==1:
      self.counts[self.slot]-=1;debit=True
    self.review_log.append(dict(t=t,xy=q.tolist(),slot=self.slot,debit=debit))
@@ -141,7 +138,7 @@ class Brain:
    self.recounts.append(dict(t=t,slot=self.slot+1,before=before,observed=max(supported),views=counts))
   self.slot_views.clear();self.review.clear();self.cargo.clear()
  def visible(self,p,h):
-  d=grid-p;co,si=math.cos(h),math.sin(h);a,b=d.T;cc=c['camera'];q=(np.column_stack((co*a+si*b,-si*a+co*b,np.full(len(a),.015)))-cc['camera_base_position_m'])@np.array(cc['R_ground_optical']);z=q[:,2];x,y=(q[:,:2]/np.maximum(.01,z[:,None])).T;r=x*x+y*y;k,l=cc['opencv_distortion'][:2];v=1+k*r+l*r*r;return (z>0)&(abs(x*v*cc['focal_px'])<319.5)&(abs(y*v*cc['focal_px'])<239.5)&(np.linalg.norm(d,axis=1)<=1.5)
+  d=grid-p;co,si=math.cos(h),math.sin(h);a,b=d.T;cc=c['camera'];q=(np.column_stack((co*a+si*b,-si*a+co*b,np.full(len(a),2*HALF_HEIGHT_M)))-cc['camera_base_position_m'])@np.array(cc['R_ground_optical']);z=q[:,2];x,y=(q[:,:2]/np.maximum(.01,z[:,None])).T;r=x*x+y*y;k,l=cc['opencv_distortion'][:2];v=1+k*r+l*r*r;return (z>0)&(abs(x*v*cc['focal_px'])<319.5)&(abs(y*v*cc['focal_px'])<239.5)&(np.linalg.norm(d,axis=1)<=1.5)
  def mapped(self,t):
   # A track has no time-to-live. It remains available until observations
   # prove the old position empty, or the controller explicitly takes it.
@@ -179,7 +176,7 @@ class Brain:
    return self.cmd('PUSH TO GOAL / STRAIGHT',.08 if self.end.back<ZONE+.055 else .155,0)
   if (ids or self.load) and (self.goal is None or expired) and self.phase is None:
    ids=sorted(ids,key=lambda k:tuple(self.db[k]['p']))[:60];coords=[p,*[self.db[k]['p'] for k in ids]]
-   decision=plan(self.s,self.counts,coords,h,self.load,self.prefix,self.ref,normal_entry=True)
+   decision=plan(self.s,self.counts,coords,h,self.load,self.prefix,self.ref,normal_entry=True,centers=CENTERS,bounds=(GOAL_A_Y0,GOAL_A_Y1),piece_radius=RADIUS_M)
    if decision is None:return self.cmd('ALL GOAL SLOTS FULL',0,0)
    self.next_plan=t+1.;self.slot,self.ref,route=decision;self.seq=[ids[j] for j in route];self.goal=np.array([0.,CENTERS[self.slot]]);self.plans+=1;self.scan=None
   if self.goal is None:
@@ -213,7 +210,7 @@ class Brain:
     return self.cmd('PICKUP / ESTIMATE',0,0)
    return self.follow(p,h,dst,'COLLECT')
   if not self.delivery:
-   self.delivery=[np.array(q) for q in delivery_path(p,CENTERS[self.slot])]
+   self.delivery=[np.array(q) for q in delivery_path(p,CENTERS[self.slot],half_width=FIELD_ENTRY_HALF_WIDTH)]
   self.phase='DELIVER';self.target=self.delivery[0]
   if len(self.delivery)>1:
    if np.linalg.norm(p-self.target)>.023:return self.follow(p,h,self.target,'DELIVERY LINE')
@@ -246,26 +243,26 @@ def compose(o,top,b,ref,a):
  def xy(v):return (int(x0+v[0]*z),int(y0-v[1]*z))
  cv2.rectangle(im,xy([0,2]),xy([3,0]),(53,58,61),-1)
  for q in grid[b.cover]:cv2.rectangle(im,xy(q+[-.049,.049]),xy(q+[.049,-.049]),(73,81,82),-1)
- cv2.line(im,xy([0,.42]),xy([0,1.57]),(222,181,60),4);path=[p,*[b.db[k]['p'] for k in b.seq]]
+ cv2.line(im,xy([ZONE,GOAL_A_Y0]),xy([ZONE,GOAL_A_Y1]),(222,181,60),4);path=[p,*[b.db[k]['p'] for k in b.seq]]
  for j,y in enumerate(CENTERS):
   col=(40,75,220) if b.counts[j]>=4 else (105,175,100)
   if b.goal is not None and j==b.slot:col=(60,210,255)
   cv2.line(im,xy([0,y-.065]),xy([0,y+.065]),col,6)
   text(im,str(b.counts[j]),xy([-.13,y-.025]),.43,col)
  if b.goal is not None and b.phase not in ('BACK','HOLD'):
-  path.extend(b.delivery or delivery_path(path[-1],CENTERS[b.slot]))
+  path.extend(b.delivery or delivery_path(path[-1],CENTERS[b.slot],half_width=FIELD_ENTRY_HALF_WIDTH))
  if len(path)>1:cv2.polylines(im,[np.array(list(map(xy,path)))],False,(82,187,250),2)
  ids=b.mapped(t)
  for k in ids:cv2.circle(im,xy(b.db[k]['p']),4,(130,228,160),-1)
  cv2.arrowedLine(im,xy(p),xy(p+.17*np.array([math.cos(h),math.sin(h)])),(241,194,92),3,tipLength=.35);text(im,'Green: mapped pieces   |   Amber line: plan',(18,883),.47)
  rows=[('SIM CLOCK',f'{t:05.1f} / 120.0 s'),('STATE',b.state),('BASE XY',f'{p[0]:.3f}, {p[1]:.3f} m'),('YAW',f'{math.degrees(h):+.1f} deg'),('TARGET XY','--' if b.target is None else f'{b.target[0]:.2f}, {b.target[1]:.2f} m'),('CAM / MAP',f'{len(b.boxes)} boxes  /  {len(ids)} tracks'),('TRIP',f'{b.load} estimated on plate  /  {len(b.seq)} queued'),('PLANNER',f'{b.plans} solves  /  {b.odo:.2f} m traveled'),('WHEEL PWM','   '.join(map(str,a['motor_pwm']))),('REFEREE ONLY',f'{len(ref.active)} / 32 in home goal')]
- rows.extend([('SPEED / YAW RATE',f'{b.speed:.3f} m/s   {b.rate:+.1f} deg/s'),('GOAL SLOT','--' if b.goal is None else f'{b.slot+1} / 8  (estimated: {b.counts[b.slot]})')])
+ rows.extend([('SPEED / YAW RATE',f'{b.speed:.3f} m/s   {b.rate:+.1f} deg/s'),('GOAL SLOT','--' if b.goal is None else f'{b.slot+1} / {len(CENTERS)}  (estimated: {b.counts[b.slot]})')])
  for i,(k,v) in enumerate(rows):yy=508+i*32;text(im,k,(658,yy),.48,(154,174,180));text(im,v,(847,yy),.62,(142,224,177) if i in (1,9) else (237,237,231))
  return im
 
 def main():
  live=os.environ.get('SIM_LIVE')=='1';window='ChessPushBot - Live Simulation'
- out.mkdir(parents=True,exist_ok=True);reports.mkdir(parents=True,exist_ok=True);vid=out/'四视图.mp4';log=[];audit=[];prefix=int(os.environ.get('TEST_SECONDS','120'));positions=np.array([[*p,.0076] for p in board['points']]);env=Physics(c,positions,car=(*board['start'],.001),appearance=appearance);ref=Referee(c['goals'],32,center_only=True,time_limit=prefix)
+ out.mkdir(parents=True,exist_ok=True);reports.mkdir(parents=True,exist_ok=True);vid=out/'四视图.mp4';log=[];audit=[];prefix=int(os.environ.get('TEST_SECONDS','120'));positions=np.array([[*p,SPAWN_Z_M] for p in board['points']]);env=Physics(c,positions,car=(*board['start'],.001),appearance=appearance);ref=Referee(c['goals'],32,center_only=True,time_limit=prefix)
  # Overview framing only: fill the pane with the complete 3 x 2 m field.
  camid=mujoco.mj_name2id(env.m,mujoco.mjtObj.mjOBJ_CAMERA,'overview');env.m.cam_fovy[camid]=44.
  controls=('LED strips (%)','Window light (%)')
@@ -280,7 +277,7 @@ def main():
   if abs(env.d.qvel[5])>.08 or any(a['motor_pwm'][j]!=a['motor_pwm'][0] for j in range(1,4)):
    m=breakdown.setdefault(b.state,dict(samples=0,contacts=0,min_clear=999.));m['samples']+=1;cl=clearance(env.d.xpos[env.car]);m['min_clear']=min(m['min_clear'],cl);checks['turn_steps']+=1;checks['min_turn_clearance']=min(checks['min_turn_clearance'],cl);checks['unsafe_turn_steps']+=int(cl<=0)
    for ev in new:
-    q=poses[ev['piece_id']][0];dist=math.hypot(max(0,q[0]-ZONE,-q[0]),max(0,.42-q[1],q[1]-1.57));touch=int(ev['role']=='plate' and dist<=Rpiece);checks['protected_turn_contacts']+=touch;m['contacts']+=touch
+    q=poses[ev['piece_id']][0];dist=math.hypot(max(0,q[0]-ZONE,-q[0]),max(0,GOAL_A_Y0-q[1],q[1]-GOAL_A_Y1));touch=int(ev['role']=='plate' and dist<=Rpiece);checks['protected_turn_contacts']+=touch;m['contacts']+=touch
  ref.update=audited
  with tempfile.TemporaryDirectory() as tmp:
   exe=Path(tmp)/('solver.exe' if os.name=='nt' else 'solver');subprocess.run(['c++','-O3','-std=c++17','balance_solver.cpp','-o',exe],cwd=sim,check=True)

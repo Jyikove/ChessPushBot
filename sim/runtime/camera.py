@@ -1,5 +1,6 @@
 import cv2, math
 import numpy as np
+from piece_spec import HALF_HEIGHT_M
 from shape_runtime import Detector, prepare, postprocess
 class Camera:
  def __init__(self,c,model_folder):
@@ -10,6 +11,6 @@ class Camera:
   R=np.array([[math.cos(pose[2]),-math.sin(pose[2])],[math.sin(pose[2]),math.cos(pose[2])]])
   for ray in rays:
    if ray[2]>-.04:out.append(None);continue
-   v=origin+ray*(.015-origin[2])/ray[2]
+   v=origin+ray*(2*HALF_HEIGHT_M-origin[2])/ray[2]
    out.append(pose[:2]+R@v[:2] if .12<v[0]<2.8 else None)
   return out
