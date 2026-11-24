@@ -6,8 +6,10 @@ import numpy as np
 
 PRESETS = {
     'baseline': None,
-    'overcast': dict(ambient='.28 .29 .30', overhead='.43 .44 .46', side='.16 .19 .23',
-                     window='.42 .56 .65', gain=(.94, .97, 1.0), vignette=.06),
+    # Fitted to onboard JPEG samples of the physical fence and unmarked floor.
+    'overcast': dict(ambient='.40 .40 .40', overhead='.43 .44 .46', side='.16 .19 .23',
+                     window='.42 .56 .65', gain=(.94, .97, 1.0), vignette=.06,
+                     board_rgba='.921 .877 .697 1', floor_rgba='.901 .870 .772 1'),
     'window-sun': dict(ambient='.19 .19 .19', overhead='.28 .28 .29', side='.78 .72 .60',
                        window='.71 .82 .94', gain=(1.03, 1.01, .98), vignette=.08),
     'warm-room': dict(ambient='.19 .18 .17', overhead='.38 .33 .26', side='.07 .09 .14',
@@ -25,10 +27,14 @@ def apply_room(model, preset):
     asset = model.find('asset')
     floor = asset.find("material[@name='field_pdf_material']")
     floor.attrib.update(specular='.52', shininess='.12', reflectance='0')
-    ET.SubElement(asset, 'material', name='room_board', emission='.58', specular='.06')
+    if 'floor_rgba' in style:
+        # Tint the rendered surface while retaining the competition map texture.
+        world.find("geom[@name='field_pdf_visual']").set('rgba', style['floor_rgba'])
+    ET.SubElement(asset, 'material', name='room_board',
+                  emission='0', specular='.025', shininess='.10', reflectance='0')
     for wall in world.findall("geom"):
         if wall.get('name', '').startswith('wall_'):
-            wall.set('rgba', '.97 .97 .95 1')
+            wall.set('rgba', style.get('board_rgba', '.89 .89 .87 1'))
             wall.set('material', 'room_board')
 
     def box(name, pos, size, rgb, material=None):

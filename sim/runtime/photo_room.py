@@ -68,7 +68,6 @@ def apply_photos(model, folder, atlas_path):
         ET.SubElement(world, 'geom', name=f'photo_{name}', type='mesh', mesh=f'photo_{name}',
                       material=f'photo_{name}', group='3', contype='0', conaffinity='0')
     artwork = asset.find("texture[@name='field_pdf_texture']")
-    asset.find("material[@name='room_board']").set('emission', '.43')
     printed = cv2.imdecode(np.frombuffer(Path(artwork.get('file')).read_bytes(), np.uint8), cv2.IMREAD_COLOR)
     multiplier = .87
     if (folder / 'image_20261119_154929_622.jpg').is_file():

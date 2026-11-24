@@ -1,4 +1,4 @@
-"""Per-piece private meshes, one collision cylinder/body and three massless visuals."""
+"""Per-piece meshes with a collision cylinder and massless artwork visuals."""
 from pathlib import Path
 import json,hashlib,xml.etree.ElementTree as E
 from piece_spec import RADIUS_M,HALF_HEIGHT_M,MASS_KG,inertia,identity

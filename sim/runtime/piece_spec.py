@@ -1,13 +1,44 @@
-"""47x15mm independent pieces; no engine imports. Mass/friction remain assumptions."""
-RADIUS_M=.0235
-HALF_HEIGHT_M=.0075
-MASS_KG=.02
-PAIR_GAP_M=.001
-RANDOM_PAIR_GAP_M=.008
-WALL_GAP_M=.001
-ROBOT_GAP_M=.002
-PIECES=({'instance_id': 1, 'source_piece_id': '红_帥_1', 'class': 'red', 'side': '红', 'character': '帥'}, {'instance_id': 2, 'source_piece_id': '黑_將_1', 'class': 'black', 'side': '黑', 'character': '將'}, {'instance_id': 3, 'source_piece_id': '红_仕_1', 'class': 'red', 'side': '红', 'character': '仕'}, {'instance_id': 4, 'source_piece_id': '黑_士_1', 'class': 'black', 'side': '黑', 'character': '士'}, {'instance_id': 5, 'source_piece_id': '红_仕_2', 'class': 'red', 'side': '红', 'character': '仕'}, {'instance_id': 6, 'source_piece_id': '黑_士_2', 'class': 'black', 'side': '黑', 'character': '士'}, {'instance_id': 7, 'source_piece_id': '红_相_1', 'class': 'red', 'side': '红', 'character': '相'}, {'instance_id': 8, 'source_piece_id': '黑_象_1', 'class': 'black', 'side': '黑', 'character': '象'}, {'instance_id': 9, 'source_piece_id': '红_相_2', 'class': 'red', 'side': '红', 'character': '相'}, {'instance_id': 10, 'source_piece_id': '黑_象_2', 'class': 'black', 'side': '黑', 'character': '象'}, {'instance_id': 11, 'source_piece_id': '红_車_1', 'class': 'red', 'side': '红', 'character': '車'}, {'instance_id': 12, 'source_piece_id': '黑_車_1', 'class': 'black', 'side': '黑', 'character': '車'}, {'instance_id': 13, 'source_piece_id': '红_車_2', 'class': 'red', 'side': '红', 'character': '車'}, {'instance_id': 14, 'source_piece_id': '黑_車_2', 'class': 'black', 'side': '黑', 'character': '車'}, {'instance_id': 15, 'source_piece_id': '红_馬_1', 'class': 'red', 'side': '红', 'character': '馬'}, {'instance_id': 16, 'source_piece_id': '黑_馬_1', 'class': 'black', 'side': '黑', 'character': '馬'}, {'instance_id': 17, 'source_piece_id': '红_馬_2', 'class': 'red', 'side': '红', 'character': '馬'}, {'instance_id': 18, 'source_piece_id': '黑_馬_2', 'class': 'black', 'side': '黑', 'character': '馬'}, {'instance_id': 19, 'source_piece_id': '红_炮_1', 'class': 'red', 'side': '红', 'character': '炮'}, {'instance_id': 20, 'source_piece_id': '黑_炮_1', 'class': 'black', 'side': '黑', 'character': '炮'}, {'instance_id': 21, 'source_piece_id': '红_炮_2', 'class': 'red', 'side': '红', 'character': '炮'}, {'instance_id': 22, 'source_piece_id': '黑_炮_2', 'class': 'black', 'side': '黑', 'character': '炮'}, {'instance_id': 23, 'source_piece_id': '红_兵_1', 'class': 'red', 'side': '红', 'character': '兵'}, {'instance_id': 24, 'source_piece_id': '黑_卒_1', 'class': 'black', 'side': '黑', 'character': '卒'}, {'instance_id': 25, 'source_piece_id': '红_兵_2', 'class': 'red', 'side': '红', 'character': '兵'}, {'instance_id': 26, 'source_piece_id': '黑_卒_2', 'class': 'black', 'side': '黑', 'character': '卒'}, {'instance_id': 27, 'source_piece_id': '红_兵_3', 'class': 'red', 'side': '红', 'character': '兵'}, {'instance_id': 28, 'source_piece_id': '黑_卒_3', 'class': 'black', 'side': '黑', 'character': '卒'}, {'instance_id': 29, 'source_piece_id': '红_兵_4', 'class': 'red', 'side': '红', 'character': '兵'}, {'instance_id': 30, 'source_piece_id': '黑_卒_4', 'class': 'black', 'side': '黑', 'character': '卒'}, {'instance_id': 31, 'source_piece_id': '红_兵_5', 'class': 'red', 'side': '红', 'character': '兵'}, {'instance_id': 32, 'source_piece_id': '黑_卒_5', 'class': 'black', 'side': '黑', 'character': '卒'})
+"""Competition geometry and identity. Mass remains a simulation assumption."""
+import json
+from pathlib import Path
+
+SPEC = json.loads(
+    (Path(__file__).resolve().parents[2] / "assets/chess/chess.json").read_text(encoding="utf-8")
+)
+RADIUS_M = SPEC["diameter_mm"] * .0005
+HALF_HEIGHT_M = SPEC["height_mm"] * .0005
+SPAWN_Z_M = HALF_HEIGHT_M + .0001
+MASS_KG = .02
+PAIR_GAP_M = .001
+RANDOM_PAIR_GAP_M = .008
+WALL_GAP_M = .001
+ROBOT_GAP_M = .002
+
+
+def make_identities():
+    teams = (
+        [(piece, n) for piece in SPEC["types"] if piece["team"] == team
+         for n in range(1, piece["count"]+1)]
+        for team in ("A", "B")
+    )
+    return tuple({
+        "instance_id": i,
+        "source_piece_id": f'{piece["id"]}_{n}',
+        "class": "red" if piece["team"] == "A" else "white",
+        "side": piece["side"],
+        "team": piece["team"],
+        "character": piece["character"],
+        "points": piece["points"],
+    } for i, (piece, n) in enumerate((q for pair in zip(*teams, strict=True) for q in pair), 1))
+
+
+PIECES = make_identities()
+
+
 def inertia(mass=MASS_KG):
-    ix=mass*(3*RADIUS_M**2+(2*HALF_HEIGHT_M)**2)/12
-    return (ix,ix,.5*mass*RADIUS_M**2)
-def identity(index):return dict(PIECES[index])
+    ix = mass * (3*RADIUS_M**2+(2*HALF_HEIGHT_M)**2) / 12
+    return ix, ix, .5*mass*RADIUS_M**2
+
+
+def identity(index):
+    return dict(PIECES[index])

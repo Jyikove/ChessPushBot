@@ -11,6 +11,9 @@ from photo_room import apply_photos
 class Physics:
  def __init__(self,c,positions,car=(1.5,1.,.001),yaw=0,render=True,appearance='baseline'):
   self.c=c;self.car_start=car;self.positions=positions
+  wheel_response=c.get('wheel_response',{})
+  self.wheel_deadband=np.asarray(wheel_response.get('deadband_pwm',18),dtype=float)
+  self.wheel_max_speed=np.asarray(wheel_response.get('max_speed_m_s',.32),dtype=float)
   xml=E.fromstring(scene_xml(ROOT.parent/'assets/robot',position=car,pieces=positions,yaw=yaw))
   # Static fixed camera, gimbal posture represented explicitly by published extrinsics.
   for name in ['pan','tilt']:
@@ -84,7 +87,7 @@ class Physics:
   self.last_control_contacts=set();u=np.array(validate_action(a));self.delay.append((self.steps+6,u))
   for _ in range(24):
    while self.delay and self.delay[0][0]<=self.steps:_,self.u=self.delay.pop(0)
-   effective=np.sign(self.u)*np.maximum(0,abs(self.u)-18)/(255-18)*.32
+   effective=np.sign(self.u)*np.maximum(0,abs(self.u)-self.wheel_deadband)/(255-self.wheel_deadband)*self.wheel_max_speed
    self.wheel_speed+=(effective-self.wheel_speed)*(1-math.exp(-1/240/.09))
    r=self.d.xmat[self.car].reshape(3,3);bodyv=r.T@self.d.qvel[:3];omega=self.d.qvel[5]
    slip=self.wheel_speed-WHEEL@np.array([bodyv[0],bodyv[1],.11*omega])

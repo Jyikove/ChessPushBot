@@ -4,8 +4,9 @@ import json,math,xml.etree.ElementTree as E
 import numpy as np
 import mujoco
 from field_artwork import apply_field_artwork
+from field_spec import FIELD_WIDTH_M, FIELD_DEPTH_M, WALL_HEIGHT_M, WALL_THICKNESS_M
 from chess_visuals import add_chess_visuals
-from piece_spec import RADIUS_M,HALF_HEIGHT_M,MASS_KG,inertia as piece_inertia
+from piece_spec import RADIUS_M,HALF_HEIGHT_M,MASS_KG,SPAWN_Z_M,inertia as piece_inertia
 
 ROOT=Path(__file__).resolve().parent
 def vec(a):return ' '.join(f'{float(x):.12g}' for x in np.asarray(a).ravel())
@@ -20,10 +21,17 @@ def scene_xml(asset_dir,position=(1,1,0.001),pieces=((1.19,1,.18),),yaw=0):
     for item in config['visuals']:add(asset,'mesh',name=item['name']+'_visual',file=str(asset_dir/item['file']))
     for item in config['convex_parts']:add(asset,'mesh',name=item['name']+'_mesh',vertex=vec(item['vertices']))
     world=add(m,'worldbody');add(world,'light',pos=(1.5,1,3),dir=(0,0,-1),diffuse=(.8,.8,.8))
-    add(world,'geom',name='floor',type='plane',pos=(1.5,1,0),size=(1.5,1,.1),rgba=(.28,.36,.4,1),group=0)
-    walls=[('west',(-.01,1,.04),(.01,1.02,.04)),('east',(3.01,1,.04),(.01,1.02,.04)),('south',(1.5,-.01,.04),(1.5,.01,.04)),('north',(1.5,2.01,.04),(1.5,.01,.04))]
+    x, y = FIELD_WIDTH_M, FIELD_DEPTH_M
+    add(world,'geom',name='floor',type='plane',pos=(x/2,y/2,0),size=(x/2,y/2,.1),rgba=(.28,.36,.4,1),group=0)
+    half_height = WALL_HEIGHT_M / 2
+    half_thickness = WALL_THICKNESS_M / 2
+    walls = [
+        ('west', (-half_thickness, y/2, half_height), (half_thickness, y/2+WALL_THICKNESS_M, half_height)),
+        ('east', (x+half_thickness, y/2, half_height), (half_thickness, y/2+WALL_THICKNESS_M, half_height)),
+        ('south', (x/2, -half_thickness, half_height), (x/2, half_thickness, half_height)),
+        ('north', (x/2, y+half_thickness, half_height), (x/2, half_thickness, half_height)),
+    ]
     for name,pos,size in walls:add(world,'geom',name='wall_'+name,type='box',pos=pos,size=size,rgba=(.7,.7,.65,1),group=0)
-    add(world,'geom',name='goal_mark',type='box',pos=(2.85,1,.0001),size=(.15,.5,.0001),rgba=(.2,.45,.25,1),contype=0,conaffinity=0,group=0)
     # Ruler markers provide a rendered 100mm reference without influencing contacts.
     for i in range(11):add(world,'geom',name=f'ruler_{i}',type='box',pos=(1+i*.01,.75,.0002),size=(.0003,.004 if i%5 else .008,.0002),rgba=(1,1,1,1),contype=0,conaffinity=0,group=0)
     car=add(world,'body',name='car',pos=position,quat=(math.cos(yaw/2),0,0,math.sin(yaw/2)));add(car,'freejoint',name='car_free')
@@ -39,7 +47,7 @@ def scene_xml(asset_dir,position=(1,1,0.001),pieces=((1.19,1,.18),),yaw=0):
     tilt=add(pan,'body',name='tilt_body',pos=(.006,0,.008));add(tilt,'joint',name='tilt',type='hinge',axis=(0,1,0),range=(-math.pi/6,math.pi/6),damping=.002,armature=.00001)
     add(tilt,'inertial',pos=(.008,0,0),mass=.006,diaginertia=(.000001,.000001,.000001));add(tilt,'geom',name='tilt_proxy',type='box',pos=(.008,0,0),size=(.008,.012,.006),rgba=(.1,.3,.6,1),contype=0,conaffinity=0,group=1)
     for i,pos in enumerate(pieces):
-        piece=add(world,'body',name=f'piece_{i:02}',pos=pos);add(piece,'freejoint',name=f'piece_{i:02}_free')
+        piece=add(world,'body',name=f'piece_{i:02}',pos=(*pos[:2], max(pos[2], SPAWN_Z_M)));add(piece,'freejoint',name=f'piece_{i:02}_free')
         add(piece,'inertial',pos=(0,0,0),mass=MASS_KG,diaginertia=piece_inertia())
         add(piece,'geom',name=f'piece_{i:02}_geom',type='cylinder',size=(RADIUS_M,HALF_HEIGHT_M),rgba=(.85,.04,.03,1) if i%2==0 else (.04,.04,.04,1),group=0)
     actuators=add(m,'actuator')

@@ -90,12 +90,12 @@ cd ChessPushBot
 | 小车 | `assets/robot/raspbot.step` | 原厂 STEP，毫米；存在原始几何导入问题，仿真网格为外形近似 |
 | 小车仿真网格 | `assets/robot/simulation.json` | OBJ 为米；配置记录装配坐标变换、推板碰撞分块及简化假设 |
 | 场地 | `assets/field/field.obj`、`field.png`、`field.json` | 3×2 米；纹理与 OBJ 的 UV 配合使用，渲染器需显式绑定纹理 |
-| 推板 | `assets/pusher/pusher.step`、`pusher.stl` | 毫米；宽 200、中间弧深 10、壁厚 3、安装片主体 3、安装孔周围 1（半径 3.5）、离地 3；OBJ 是已转换到仿真车体坐标的米制网格 |
+| 推板 | `assets/pusher/pusher.step`、`pusher.stl` | mm；宽 290、两侧内弧直径 67（单侧圆心角 110.63°）、中弧深约 14.69、壁厚 4.35、离地 3；孔距 19、孔径 3，孔周保留 1；OBJ 为仿真车体坐标的米制网格 |
 | IMU 转接板 | `assets/imu_mount/imu_mount.step`、`imu_mount.stl` | 毫米；板厚 2、固定孔距 49×58、支座外径 6；搭配 14 mm 铜柱 |
-| 棋子 | `assets/chess/chess.json` | 14 种棋面、按数量组成 32 枚；直径 47 mm、高 15 mm；STEP/STL 毫米、GLB 场景变换后为米 |
+| 棋子 | `assets/chess/chess.json` | 14 种棋面、按数量组成 32 枚；直径 67 mm、厚 17 mm，黑底红字与白字各 16 枚；STEP/STL 毫米、GLB 场景变换后为米 |
 
-棋子双面文字已建模，黑方炮使用火字旁“炮”。碰撞模型简化为圆柱；质量与摩擦未实测。场地绘图区域与既有实验评分区存在差异，具体坐标保留在 `field.json` 中，不能直接视为统一后的比赛判分配置。
+棋子按 2026-11-17 组委会区赛参考细则建模，双面同字同色。碰撞模型是直径 67 mm、厚 17 mm 的圆柱；质量与摩擦未实测。详细参数和重建方法见[棋子模型说明](assets/chess/README.md)。新版场地的球门、发车区和摆棋区按区赛图纸建模，具体坐标见 `field.json`。历史实验使用的判分方式不能视为正式比赛成绩。
 
-原厂车体来自 Yahboom RASPBOT V2 资料；场地外观依据项目提供的尺寸图；棋子按所购产品尺寸近似建模，字形和装饰未逐项实测
+原厂车体来自 Yahboom RASPBOT V2 资料。棋面字形与装饰从组委会附件重建，实物印刷尚待核对。
 
-推板模型更新后，运行 `python assets/pusher/build_simulation.py` 同步仿真外观和圆弧碰撞分块（需 numpy、trimesh）；安装孔及孔周局部减薄在碰撞模型中填实。
+推板模型更新后，运行 `python assets/pusher/build_simulation.py` 同步仿真外观和圆弧碰撞分块（需 NumPy、trimesh），再运行 `python assets/pusher/render_preview.py --label-font /absolute/path/to/CJK-font.ttc` 更新预览和资产清单。安装孔及局部减薄在碰撞模型中填实。
