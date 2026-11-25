@@ -48,6 +48,7 @@ class Policy:
         self.raid_entries = []
         self.raid_denied = 0
         self.raid_push_offset = 0.
+        self.raid_carry_observation = None
         self.raid_followup = False
         self.opening_lane_step = 0.
         self.recovery_tried = False
@@ -586,15 +587,29 @@ class Policy:
         return [(p, value) for p, value in self._valued_disks(rgb, stamp, rotation, own=False)
                 if np.all(p > self.enemy_goal[0] + .025) and np.all(p < self.enemy_goal[1] - .025)]
 
-    def _raid_carries_valuable_disk(self, obs, rotation, aligned):
+    def _raid_carries_residual(self, obs, rotation, aligned):
         stamp = obs["image_time_s"]
-        if (aligned and obs["rgb"] is not None and stamp is not None and
-                obs["time_s"] - stamp <= .11 and np.linalg.norm(self.target - self.pos) <= .17):
-            for point, value in self._valued_disks(obs["rgb"], stamp, rotation, own=False):
-                front, lateral = rotation.T @ (point - self.pos)
-                if value is not None and value >= 5 and .19 < front < .39 and abs(lateral) < .13:
-                    return True
-        return False
+        if (not aligned or obs["rgb"] is None or stamp is None or
+                obs["time_s"] - stamp > .11 or np.linalg.norm(self.target - self.pos) > .17):
+            return False
+        previous = self.raid_carry_observation
+        seen = []
+        confirmed_high = False
+        for point, value in self._valued_disks(obs["rgb"], stamp, rotation, own=False):
+            local = rotation.T @ (point - self.pos)
+            front, lateral = local
+            if .19 < front < .39 and abs(lateral) < .13:
+                seen.append(local)
+                confirmed_high |= value is not None and value >= 5
+        if previous is None or stamp > previous[0]:
+            supported = (previous is not None and .15 <= stamp - previous[0] <= .32 and
+                         any(np.linalg.norm(at - new) < .045 for at in previous[1] for new in seen))
+            self.raid_carry_observation = stamp, seen, supported
+        else:
+            supported = previous[2]
+        # At close range the push face can hide the glyph. Match consecutive
+        # detections in the car frame while retaining the original rank uncertainty.
+        return confirmed_high or (self.raid_denied >= 5 and supported)
 
     def _raid_choice(self, time, targets):
         elapsed = MATCH_SECONDS - time
@@ -620,7 +635,7 @@ class Policy:
         goal_center_x = goal[:, 0].mean()
         # Larger batches already have a straight sweep and clearance route.
         if (len(self.raid_entries) != 1 or self.raid_denied >= 10 or
-                lane < goal_center_x + .02 or remaining < 16. or
+                lane < goal_center_x + .02 or remaining < 22. or
                 not any(value is not None and value >= 3 for _, value in targets)):
             return 0.
         end_y = goal[1 if self.raid_wing > 0 else 0, 1] + self.raid_wing * .09
@@ -914,6 +929,7 @@ class Policy:
                 elif not self._plan_raid(time, MATCH_SECONDS - time):
                     self._end_raid(time, "raid_no_target")
         elif self.phase == "raid_align" and reached:
+            self.raid_carry_observation = None
             exit_y = self.enemy_goal[1 if self.raid_wing > 0 else 0, 1] + self.raid_wing * .09
             self.raid_pushed_lane = self.pos[0]
             end = (self.pos[0] - self.raid_push_offset, exit_y)
@@ -929,7 +945,7 @@ class Policy:
             remaining = MATCH_SECONDS - time
             can_clear = 9. <= remaining <= 22. and not math.isfinite(self.traffic_gap)
             diagonal = (can_clear and remaining >= 11. and self.raid_denied < 10 and
-                        self._raid_carries_valuable_disk(obs, rotation, aligned))
+                        self._raid_carries_residual(obs, rotation, aligned))
             if reached and can_clear and (self.raid_denied >= 10 or diagonal):
                 self.exit_reason = "raid_complete"
                 self.exit_retried = False
