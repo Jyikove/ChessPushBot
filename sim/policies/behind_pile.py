@@ -52,6 +52,8 @@ class Policy:
         self.raid_followup = False
         self.raid_short_target = None
         self.raid_rescan_shifted = False
+        self.raid_rescan_advanced = False
+        self.raid_entry_rechecked = False
         self.opening_lane_step = 0.
         self.recovery_tried = False
         self.rank_model = None
@@ -825,35 +827,47 @@ class Policy:
         self.exit_reason = None
         self._move_to("raid_lane", (self.pos[0], stage_y), 0., time)
 
-    def _recent_opponent_gap(self, time, target):
+    def _recent_opponent_gap(self, time, target, origin=None):
         if self.opponent is None or time - self.opponent[0] > 2.:
             return math.inf
         _, point, velocity = self.opponent
-        obstacle = point + .6 * velocity - self.pos
-        step = target - self.pos
+        origin = self.pos if origin is None else origin
+        obstacle = point + .6 * velocity - origin
+        step = target - origin
         along = np.clip(obstacle @ step / max(.01, step @ step), 0., 1.)
         return np.linalg.norm(obstacle - along * step)
 
+    def _try_rescan_vantage(self, time, vantage):
+        step = vantage - self.pos
+        if np.linalg.norm(step) < .20:
+            return False
+        look_seconds = np.linalg.norm(step) / .18 + .7
+        entry_seconds = (self.enemy_goal[0, 0] + .08 - vantage[0]) / .19
+        minimum_sweep = entry_seconds + .375 / .15 + 6.
+        if (time + look_seconds > self.raid_rescan_until or
+                MATCH_SECONDS - time < look_seconds + minimum_sweep or
+                self._recent_opponent_gap(time, vantage) < .42):
+            return False
+        delta = self.enemy_goal.mean(axis=0) - vantage
+        self._move_to("raid_rescan_shift", vantage, math.atan2(delta[1], delta[0]), time)
+        return True
+
     def _finish_rescan(self, time, reason):
         self.exit_reason = reason
-        if not self.raid_rescan_shifted:
-            center = self.enemy_goal.mean(axis=0)
+        center = self.enemy_goal.mean(axis=0)
+        if not self.raid_rescan_shifted and not self.raid_rescan_advanced:
             wing = 1 if self.pos[1] <= center[1] else -1
-            vantage = np.array([self.pos[0] - .08, center[1] + wing * .16])
-            step = vantage - self.pos
-            look_seconds = np.linalg.norm(step) / .18 + .7
-            # Budget the shortest plausible follow-up plus a distinct view.
-            entry_seconds = (self.enemy_goal[0, 0] + .08 - vantage[0]) / .19
-            minimum_sweep = entry_seconds + .375 / .15 + 6.
-            if (time + look_seconds <= self.raid_rescan_until and
-                    MATCH_SECONDS - time >= look_seconds + minimum_sweep):
-                if self._recent_opponent_gap(time, vantage) < .42:
-                    self.exit_reason = "raid_followup_shift_occupied"
-                    self.phase = "done"
-                    return
-                delta = center - vantage
+            across = np.array([self.pos[0] - .08, center[1] + wing * .16])
+            if self._try_rescan_vantage(time, across):
                 self.raid_rescan_shifted = True
-                self._move_to("raid_rescan_shift", vantage, math.atan2(delta[1], delta[0]), time)
+                return
+        if not self.raid_rescan_advanced:
+            # A closer view can resolve disks hidden behind the lip, while
+            # staying outside the mouth until a profitable push is confirmed.
+            line = self.enemy_goal[0, 0] - .33
+            forward = np.array([line, self.pos[1]])
+            if line > self.pos[0] and self._try_rescan_vantage(time, forward):
+                self.raid_rescan_advanced = True
                 return
         self.phase = "done"
 
@@ -865,18 +879,32 @@ class Policy:
             return
         frame = self._fresh_frame(obs, aligned)
         if frame is not None:
-            for plate in self._plates(frame):
-                if np.linalg.norm(plate) < 1.08 and (
-                        self.pos + rotation @ plate)[0] > self.enemy_goal[0, 0] - .24:
-                    self._finish_rescan(time, "raid_followup_occupied")
-                    return
+            occupied = any(np.linalg.norm(plate) < 1.08 and
+                           (self.pos + rotation @ plate)[0] > self.enemy_goal[0, 0] - .24
+                           for plate in self._plates(frame))
             targets = self._raid_targets(frame, obs["image_time_s"], rotation)
             short = self._short_raid_choice(time, targets)
-            recovery = self._known_recovery_value(time)
-            if recovery > max(0., short[0] if short else 0.) and self._plan_recovery(time, verified=True):
-                return
             if short and short[0] > 0.:
-                self._start_short_raid(time, short)
+                _, _, lane, stage_y, _, _ = short
+                turn = np.array([self.pos[0], stage_y])
+                stage = np.array([lane, stage_y])
+                approach_gap = min(self._recent_opponent_gap(time, turn),
+                                   self._recent_opponent_gap(time, stage, origin=turn))
+                if not occupied or .43 <= approach_gap < math.inf:
+                    recovery = self._known_recovery_value(time)
+                    if recovery > short[0] and self._plan_recovery(time, verified=True):
+                        return
+                    self._start_short_raid(time, short)
+                    return
+            if occupied:
+                # Briefly keep the defender and the scoring area in view.
+                # A departing car can uncover a useful target in the next frames.
+                if self.frames < 3 and time - self.since < 4.1 and MATCH_SECONDS - time >= 13.:
+                    return
+                self._finish_rescan(time, "raid_followup_occupied")
+                return
+            recovery = self._known_recovery_value(time)
+            if recovery > 0. and self._plan_recovery(time, verified=True):
                 return
             if any(value is not None and value >= 5 for _, value in targets):
                 self.enemy_bank = time, targets
@@ -884,6 +912,21 @@ class Policy:
                     return
         if self.frames >= 3 or time - self.since >= 4.1:
             self._finish_rescan(time, "raid_followup_no_target")
+
+    def _recheck_raid_entry(self, time, heading):
+        exit_y = self.enemy_goal[1 if self.raid_wing > 0 else 0, 1] + self.raid_wing * .09
+        # Back far enough to bring the near painted edge into the floor view.
+        vantage = self.pos - np.array([0., self.raid_wing * .13])
+        seconds = abs(exit_y - vantage[1]) / .16 + 6.0
+        if (self.raid_entry_rechecked or len(self.raid_entries) < 2 or
+                MATCH_SECONDS - time < seconds or self._recent_opponent_gap(time, vantage) < .42):
+            return False
+        self.raid_entry_rechecked = True
+        self.raid_deadline = MATCH_SECONDS - 4.5
+        center_x = self.enemy_goal[:, 0].mean()
+        turn = -.23 if self.pos[0] < center_x else .23
+        self._move_to("raid_scan_back", vantage, heading + self.raid_wing * turn, time)
+        return True
 
     def _short_raid_scan(self, obs, rotation, aligned):
         time = obs["time_s"]
@@ -917,7 +960,7 @@ class Policy:
             if (reason == "raid_complete" and not self.raid_followup and len(self.raid_entries) == 1 and
                     MATCH_SECONDS - time >= 15. and self.pos[0] <= self.enemy_goal[0, 0] - .40):
                 self.raid_followup = True
-                self.raid_rescan_until = time + 7.
+                self.raid_rescan_until = time + 9.
                 delta = self.enemy_goal.mean(axis=0) - self.pos
                 self._observe("raid_rescan", math.atan2(delta[1], delta[0]), time)
             else:
@@ -975,6 +1018,11 @@ class Policy:
             elif self._no_progress(obs, yaw) or elapsed >= 5.2:
                 self.exit_reason = "raid_backout_incomplete"
                 self.phase = "done"
+        elif self.phase == "raid_scan_back":
+            if reached:
+                self._observe("raid_scan", self.heading, time)
+            elif elapsed >= 1.7 or self._no_progress(obs, yaw):
+                self._end_raid(time, "raid_no_target")
         elif self.phase == "raid_rescan":
             self._raid_rescan_step(obs, rotation, aligned)
         elif self.phase == "raid_rescan_shift":
@@ -1030,19 +1078,23 @@ class Policy:
                 if targets:
                     self.enemy_bank = time, targets
                 if (targets and self.frames >= 2 and not math.isfinite(self.traffic_gap) and
-                        self.raid_deadline - time >= 7.):
+                        (self.raid_entry_rechecked or self.raid_deadline - time >= 7.)):
                     raid = self._raid_choice(time, targets)
                     home = self._known_recovery_value(time)
                     if home > max(0., raid[0] if raid else 0.) and self._plan_recovery(time, verified=True):
                         return
-                    if (raid and raid[0] > 0. and (not self.raid_followup or any(
+                    if (raid and raid[0] > 0. and
+                            (not self.raid_entry_rechecked or MATCH_SECONDS - time >= -raid[2] + 4.5) and
+                            (not self.raid_followup or any(
                             v is not None and v >= 5 and abs(p[0] - raid[3]) < .125
                             for p, v in targets))):
                         self.raid_denied = raid[1]
                         self.raid_push_offset = self._raid_direction(MATCH_SECONDS - time, raid[3], targets)
                         self._move_to("raid_align", (raid[3], self.pos[1]), heading, time)
                         return
-            if self.frames >= 4 or elapsed >= 4.:
+            if self.frames >= 4 or elapsed >= (1.7 if self.raid_entry_rechecked else 4.):
+                if not math.isfinite(self.traffic_gap) and self._recheck_raid_entry(time, heading):
+                    return
                 if (self.recovery_tried and self.frames >= 4 and not self.raid_target_seen and
                         not math.isfinite(self.traffic_gap) and MATCH_SECONDS - time < 29.):
                     self._raid_exit(time, "raid_no_target")
@@ -1305,6 +1357,8 @@ class Policy:
             speed, yaw_limit = .16, .30
         elif self.phase == "raid_backout":
             speed, yaw_limit = .18, .30
+        elif self.phase == "raid_scan_back":
+            speed = .16
         elif self.phase == "raid_exit":
             speed, yaw_limit = .19, 1.
         elif self.phase in ("recover_push", "recover_backout"):
