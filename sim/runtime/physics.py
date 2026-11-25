@@ -1,5 +1,6 @@
 """Private MuJoCo runner: finite four-wheel PWM force/slip model; no velocity targets."""
 import os,sys,math,xml.etree.ElementTree as E
+from copy import deepcopy
 from pathlib import Path
 import numpy as np,mujoco,cv2
 ROOT=Path(__file__).resolve().parents[1]
@@ -8,8 +9,17 @@ from camera_alignment_adapter import load_profile,apply_scene,warp
 from core import WHEEL,validate_action
 from room_appearance import apply_room,camera_response
 from photo_room import apply_photos
+
+def wheel_force(pwm, speed, deadband, limit, rotation, velocity):
+ effective=np.sign(pwm)*np.maximum(0,abs(pwm)-deadband)/(255-deadband)*limit
+ speed+=(effective-speed)*(1-math.exp(-1/240/.09))
+ body_velocity=rotation.T@velocity[:3]
+ slip=speed-WHEEL@np.array([body_velocity[0],body_velocity[1],.11*velocity[5]])
+ wrench=WHEEL.T@np.clip(8*slip,-.65,.65)
+ return rotation@np.array([wrench[0],wrench[1],0]),.11*wrench[2]
+
 class Physics:
- def __init__(self,c,positions,car=(1.5,1.,.001),yaw=0,render=True,appearance='baseline'):
+ def __init__(self,c,positions,car=(1.5,1.,.001),yaw=0,render=True,appearance='baseline',opponent=None):
   self.c=c;self.car_start=car;self.positions=positions
   wheel_response=c.get('wheel_response',{})
   self.wheel_deadband=np.asarray(wheel_response.get('deadband_pwm',18),dtype=float)
@@ -23,8 +33,17 @@ class Physics:
   profile.update(c['camera'])
   tilt=xml.find('.//body[@name="tilt_body"]');E.SubElement(tilt,'camera',name='onboard')
   apply_scene(xml,profile,rf)
+  world=xml.find('worldbody')
+  if opponent is not None:
+   start,heading=opponent
+   second=deepcopy(world.find("body[@name='car']"))
+   for node in second.iter():
+    if 'name' in node.attrib:node.set('name',node.get('name')+'_B')
+   second.set('pos',' '.join(map(str,start)))
+   second.set('quat',f'{math.cos(heading/2)} 0 0 {math.sin(heading/2)}')
+   world.append(second)
   apply_room(xml,appearance);self.camera_gain=camera_response(appearance,self.map.shape[:2])
-  world=xml.find('worldbody');E.SubElement(world,'camera',name='overview',pos='1.5 1 3',xyaxes='1 0 0 0 1 0',fovy='60')
+  E.SubElement(world,'camera',name='overview',pos='1.5 1 3',xyaxes='1 0 0 0 1 0',fovy='60')
   assets={}
   if appearance=='photo-room':
    folder=os.environ.get('SIM_PHOTO_DIR',ROOT.parent.parent/'field-calibration/data/images')
@@ -62,8 +81,8 @@ class Physics:
  @property
  def time(self):return self.steps/240
  def truth(self):return [(self.d.xpos[i].copy(),self.d.xmat[i].reshape(3,3).copy()) for i in self.pieces]
- def render(self,overview=False):
-  self.renderer.update_scene(self.d,camera='overview' if overview else 'onboard',scene_option=self.opt if overview else self.onboard_opt)
+ def render(self,overview=False,*,camera='onboard'):
+  self.renderer.update_scene(self.d,camera='overview' if overview else camera,scene_option=self.opt if overview else self.onboard_opt)
   a=self.renderer.render().copy()
   if overview:return cv2.resize(a,(640,480))
   if self.soft_light is not None and np.any(self.m.light_diffuse[self.soft_light]):
@@ -73,7 +92,7 @@ class Physics:
     for horizontal,vertical in offsets:
      shifted=direction+np.array([0,horizontal,vertical]);self.m.light_dir[light]=shifted/np.linalg.norm(shifted)
      mujoco.mj_camlight(self.m,self.d)
-     self.renderer.update_scene(self.d,camera='onboard',scene_option=self.onboard_opt)
+     self.renderer.update_scene(self.d,camera=camera,scene_option=self.onboard_opt)
      mix+=self.renderer.render()
    finally:
     self.m.light_dir[light]=direction;mujoco.mj_camlight(self.m,self.d)
@@ -87,13 +106,9 @@ class Physics:
   self.last_control_contacts=set();u=np.array(validate_action(a));self.delay.append((self.steps+6,u))
   for _ in range(24):
    while self.delay and self.delay[0][0]<=self.steps:_,self.u=self.delay.pop(0)
-   effective=np.sign(self.u)*np.maximum(0,abs(self.u)-self.wheel_deadband)/(255-self.wheel_deadband)*self.wheel_max_speed
-   self.wheel_speed+=(effective-self.wheel_speed)*(1-math.exp(-1/240/.09))
-   r=self.d.xmat[self.car].reshape(3,3);bodyv=r.T@self.d.qvel[:3];omega=self.d.qvel[5]
-   slip=self.wheel_speed-WHEEL@np.array([bodyv[0],bodyv[1],.11*omega])
-   traction=np.clip(8*slip,-.65,.65)
-   wrench=WHEEL.T@traction;fw=r@np.array([wrench[0],wrench[1],0])
-   self.d.xfrc_applied[:]=0;self.d.xfrc_applied[self.car,:3]=fw;self.d.xfrc_applied[self.car,5]=.11*wrench[2]
+   fw,torque=wheel_force(self.u,self.wheel_speed,self.wheel_deadband,self.wheel_max_speed,
+                        self.d.xmat[self.car].reshape(3,3),self.d.qvel[:6])
+   self.d.xfrc_applied[:]=0;self.d.xfrc_applied[self.car,:3]=fw;self.d.xfrc_applied[self.car,5]=torque
    self.max_force=max(self.max_force,float(np.linalg.norm(fw)))
    mujoco.mj_step(self.m,self.d);self.steps+=1
    self.contacts+=sum(1 for x in self.d.contact if ('piece_' in (mujoco.mj_id2name(self.m,mujoco.mjtObj.mjOBJ_GEOM,int(x.geom1)) or '') or 'piece_' in (mujoco.mj_id2name(self.m,mujoco.mjtObj.mjOBJ_GEOM,int(x.geom2)) or '')))
