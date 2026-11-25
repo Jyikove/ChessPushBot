@@ -825,21 +825,44 @@ class Policy:
         self.exit_reason = None
         self._move_to("raid_lane", (self.pos[0], stage_y), 0., time)
 
+    def _recent_opponent_gap(self, time, target):
+        if self.opponent is None or time - self.opponent[0] > 2.:
+            return math.inf
+        _, point, velocity = self.opponent
+        obstacle = point + .6 * velocity - self.pos
+        step = target - self.pos
+        along = np.clip(obstacle @ step / max(.01, step @ step), 0., 1.)
+        return np.linalg.norm(obstacle - along * step)
+
     def _finish_rescan(self, time, reason):
         self.exit_reason = reason
-        if self.raid_rescan_shifted or MATCH_SECONDS - time < 15.:
-            self.phase = "done"
-            return
-        # One meaningful new view, outside the mouth and across its centerline.
-        center = self.enemy_goal.mean(axis=0)
-        wing = 1 if self.pos[1] <= center[1] else -1
-        vantage = np.array([self.pos[0] - .08, center[1] + wing * .16])
-        delta = center - vantage
-        self.raid_rescan_shifted = True
-        self._move_to("raid_rescan_shift", vantage, math.atan2(delta[1], delta[0]), time)
+        if not self.raid_rescan_shifted:
+            center = self.enemy_goal.mean(axis=0)
+            wing = 1 if self.pos[1] <= center[1] else -1
+            vantage = np.array([self.pos[0] - .08, center[1] + wing * .16])
+            step = vantage - self.pos
+            look_seconds = np.linalg.norm(step) / .18 + .7
+            # Budget the shortest plausible follow-up plus a distinct view.
+            entry_seconds = (self.enemy_goal[0, 0] + .08 - vantage[0]) / .19
+            minimum_sweep = entry_seconds + .375 / .15 + 6.
+            if (time + look_seconds <= self.raid_rescan_until and
+                    MATCH_SECONDS - time >= look_seconds + minimum_sweep):
+                if self._recent_opponent_gap(time, vantage) < .42:
+                    self.exit_reason = "raid_followup_shift_occupied"
+                    self.phase = "done"
+                    return
+                delta = center - vantage
+                self.raid_rescan_shifted = True
+                self._move_to("raid_rescan_shift", vantage, math.atan2(delta[1], delta[0]), time)
+                return
+        self.phase = "done"
 
     def _raid_rescan_step(self, obs, rotation, aligned):
         time = obs["time_s"]
+        if time >= self.raid_rescan_until:
+            self.exit_reason = "raid_followup_search_timeout"
+            self.phase = "done"
+            return
         frame = self._fresh_frame(obs, aligned)
         if frame is not None:
             for plate in self._plates(frame):
@@ -894,6 +917,7 @@ class Policy:
             if (reason == "raid_complete" and not self.raid_followup and len(self.raid_entries) == 1 and
                     MATCH_SECONDS - time >= 15. and self.pos[0] <= self.enemy_goal[0, 0] - .40):
                 self.raid_followup = True
+                self.raid_rescan_until = time + 7.
                 delta = self.enemy_goal.mean(axis=0) - self.pos
                 self._observe("raid_rescan", math.atan2(delta[1], delta[0]), time)
             else:
@@ -914,6 +938,13 @@ class Policy:
             # Leave along the deeper path so the exit does not crowd the scoring line.
             clearance = max(clearance, flank * (self.pos[1] - line))
         target = np.array([goal[0, 0] - .60, line + flank * (.24 if retry else clearance)])
+        if (reason == "raid_complete" and not retry and self.raid_short_target is None and
+                len(self.raid_entries) == 1 and MATCH_SECONDS - time >= 20.):
+            # Clear the mouth on the inside of the receiving flank. This
+            # leaves the outer corridor open to a returning defender.
+            inside = np.array([target[0], line - flank * .17])
+            if self._recent_opponent_gap(time, inside) >= .42:
+                target = inside
         if self.raid_short_target is not None and reason == "raid_complete" and not retry:
             # Leave outward from the short sweep. The defender may approach
             # from inside the mouth while we turn toward midfield.
@@ -949,7 +980,7 @@ class Policy:
         elif self.phase == "raid_rescan_shift":
             if reached:
                 self._observe("raid_rescan", self.heading, time)
-            elif elapsed >= 3.5:
+            elif elapsed >= 3.5 or time >= self.raid_rescan_until:
                 self.phase = "done"
                 self.exit_reason = "raid_followup_shift_timeout"
         elif self.phase == "raid_exit_yield" and (reached or elapsed >= 2.):
