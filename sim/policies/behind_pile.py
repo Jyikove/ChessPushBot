@@ -12,6 +12,7 @@ RETURN_SPEED = .17
 # Wing (+1 enters from low Y), X past midfield, and edge of the goal to sweep.
 SWEEP_REGIONS = ((-1, .56, .13), (1, .27, -.13),
                  (1, .59, -.03), (-1, .28, .04))
+TRAFFIC_PHASES = ("outside", "reposition", "approach", "detour", "enter", "deliver")
 
 
 class Policy:
@@ -33,6 +34,7 @@ class Policy:
         self.camera_origin = np.asarray(camera["camera_base_position_m"])
         self.inverse = np.linalg.pinv(WHEEL)
         self.reset_id = None
+        self.exit_reason = None
 
     def _local(self, xy):
         xy = np.asarray(xy, dtype=float)
@@ -43,6 +45,9 @@ class Policy:
         self.target = np.array(xy)
         self.heading = heading
         self.since = time
+        self.traffic_stamp = None
+        self.traffic_gap = math.inf
+        self.traffic_hits = 0
 
     def _approach(self, time):
         self.deep = False
@@ -159,7 +164,7 @@ class Policy:
         if .15 < near < 1.16 and np.count_nonzero(np.abs(distances - near) < .035) >= 12:
             return near
 
-    def _blocked(self, rgb, rotation):
+    def _plates(self, rgb):
         # The amber push plate is distinct from the red and white glyphs.
         hsv = cv2.cvtColor(rgb, cv2.COLOR_RGB2HSV)
         mask = cv2.inRange(hsv, (8, 100, 40), (31, 255, 255))
@@ -169,14 +174,48 @@ class Policy:
                 continue
             # Project the lower edge of the plate, which sits close to the floor.
             plate = self._floor_point(x + .5 * width, y + height - 2, .01)
-            if plate is None:
-                continue
-            px, py = self.pos + rotation @ plate[:2]
+            if plate is not None:
+                yield plate[:2]
+
+    def _blocked(self, rgb, rotation):
+        for plate in self._plates(rgb):
+            px, py = self.pos + rotation @ plate
             if (abs(px - self.entry[0]) < .33 and
                     -.08 < self.wing * (py - self.pos[1]) <
                     self.wing * (self.entry[1] - self.pos[1]) + .29):
                 return True
         return False
+
+    def _traffic_ahead(self, obs, direction):
+        stamp = obs["image_time_s"]
+        if obs["rgb"] is None or stamp is None or obs["time_s"] - stamp > .23:
+            self.traffic_hits = 0
+            self.traffic_gap = math.inf
+        elif stamp != self.traffic_stamp:
+            previous = self.traffic_stamp
+            self.traffic_stamp = stamp
+            cross = np.array([-direction[1], direction[0]])
+            gap = math.inf
+            for plate in self._plates(obs["rgb"]):
+                # The front-mounted push face also sweeps sideways on this drive.
+                if not .14 < plate[0] < .65:
+                    continue
+                delta = plate - [.13, 0.]
+                ahead = delta @ direction
+                if -.04 < ahead < .32 and abs(delta @ cross) < .24:
+                    gap = min(gap, ahead)
+            self.traffic_gap = gap
+            if gap < .225:
+                self.traffic_hits = (self.traffic_hits + 1 if previous is not None and
+                                     stamp - previous <= .32 else 1)
+            else:
+                self.traffic_hits = 0
+        return self.traffic_gap, self.traffic_hits >= 2
+
+    def _give_way(self, direction, yaw, time):
+        self.exit_reason = "delivery_blocked" if self.phase == "deliver" else "transit_blocked"
+        # Reverse the approach before turning or picking a different region.
+        self._move_to("yield", self.pos - .27 * direction, yaw, time)
 
     def _push_has_target(self, rgb, rotation):
         # A compact dark silhouette of disk width ahead of the push face.
@@ -222,6 +261,7 @@ class Policy:
         lane = self.goal_y - .04 + .08 * self.sweep if self.sweep < 2 else self.delivery_lane
         self.wall_frame = None
         self.wall_distance = None
+        self.exit_reason = None
         self._move_to("deliver", (self.goal_x if self.sweep < 2 else self.goal_front - .052, lane),
                       math.pi, time)
 
@@ -298,6 +338,7 @@ class Policy:
             self.pos = self.origin.copy()
             self.previous = encoder
             self.goal_frame = None
+            self.exit_reason = None
             if first_tick:
                 self.sweep = 0
                 self.region = 0
@@ -339,8 +380,21 @@ class Policy:
         remaining = MATCH_SECONDS - time
         can_detour = remaining >= self._return_seconds(self.center_x + .75) + 9.
         in_goal_lane = self.goal_lane[0] < self.pos[1] < self.goal_lane[1]
+        gap, blocked = math.inf, False
+        traffic_direction = self.target - self.pos
+        if self.phase == "deliver":
+            traffic_direction = np.array([-1., 0.])
+        distance = np.linalg.norm(traffic_direction)
+        if (self.sweep >= 2 and self.phase in TRAFFIC_PHASES and distance > .025 and
+                (self.phase != "enter" or abs(error) < .40)):
+            traffic_direction /= distance
+            gap, blocked = self._traffic_ahead(obs, rotation.T @ traffic_direction)
         if remaining <= 0.:
             self.phase = "done"
+        elif blocked:
+            self._give_way(traffic_direction, yaw, time)
+        elif self.phase == "yield" and (reached or elapsed >= 2.):
+            self._next_sweep(time)
         elif (self.phase in ("outside", "reposition", "approach", "detour", "look") and
               remaining < self._return_seconds(self.entry[0]) + 3.):
             self._next_sweep(time)
@@ -380,9 +434,15 @@ class Policy:
                 self._detour(time)
             else:
                 self._next_sweep(time)
-        elif self.phase == "deliver" and (goal_distance <= self.target[0] + .034 or elapsed >= 12. or
-                (guarded_return and goal_distance < .58 and abs(error) > .25)):
-            self._retreat(time, yaw)
+        elif self.phase == "deliver":
+            if goal_distance <= self.target[0] + .034:
+                self.exit_reason = "goal_edge"
+            elif guarded_return and goal_distance < .58 and abs(error) > .25:
+                self.exit_reason = "goal_alignment"
+            elif elapsed >= 12.:
+                self.exit_reason = "delivery_timeout"
+            if self.exit_reason is not None:
+                self._retreat(time, yaw)
         elif self.phase == "retreat" and (reached or elapsed >= (3.6 if guarded_return else 3.) or
                 (guarded_return and goal_distance >= self.target[0] - .034)):
             if self.sweep == 1 and aligned:
@@ -415,6 +475,10 @@ class Policy:
             back = max(0., 2. * (self.target[0] - goal_distance))
             p = -back * np.array([math.cos(self.heading), math.sin(self.heading)])
             yaw_limit = .30
+        elif self.phase == "yield":
+            speed, yaw_limit = .18, .30
+        if gap < .32 and self.phase in TRAFFIC_PHASES:
+            speed = min(speed, .09)
         p *= min(1., speed / max(speed, np.linalg.norm(p)))
         w = np.clip(3. * error - .18 * gyro, -yaw_limit, yaw_limit)
         raw = (WHEEL @ np.r_[rotation.T @ p, .11 * w]) * (237. / .32)
