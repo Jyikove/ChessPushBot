@@ -66,6 +66,7 @@ class Policy:
         self.home_loose = (0., [])
         self.enemy_bank = (0., [])
         self.late_views = set()
+        self.late_view = None
         self.delivery_retry = None
 
     def _local(self, xy):
@@ -982,6 +983,13 @@ class Policy:
                  (("home", -flank), [home_x, self.goal_y - flank * .40], math.pi),
                  (("return_lane", flank), [self.center_x - .13, self.goal_y + flank * .48], 0.),
                  (("return_lane", -flank), [self.center_x - .13, self.goal_y - flank * .48], 0.)]
+        # Once the home approaches have been checked, look across the central
+        # collection lanes from distinct flank stations, once per station.
+        for side in (flank, -flank):
+            for depth in (-.42, .17):
+                point = (self.center_x + depth, self.goal_y + side * .43)
+                heading = math.atan2(self.goal_y - point[1], self.center_x - point[0])
+                views.append((("collection_flank", side, depth), point, heading))
         if self.pos[0] > self.enemy_goal[0, 0] - .20:
             views.insert(0, (("mouth_exit", 0), [self.enemy_goal[0, 0] - .49, self.pos[1]], self.heading))
         for name, point, heading in views:
@@ -997,6 +1005,7 @@ class Policy:
                 if self._recent_opponent_gap(time, point, origin=origin) < max(.42, initial_gap + .13):
                     continue
             self.late_views.add(name)
+            self.late_view = name[0]
             self._move_to("late_return", point, heading, time)
             return True
         return False
@@ -1423,7 +1432,14 @@ class Policy:
             if self._known_recovery_value(time) > 0. and self._plan_recovery(time, verified=True):
                 pass
             elif reached or elapsed >= 12.:
-                self.phase = "done"
+                recent = obs["rgb"] is not None and time - obs["image_time_s"] <= .2
+                if (self.late_view == "collection_flank" and reached and recent
+                        and remaining >= self._return_seconds(self.center_x) + 7.
+                        and any(abs(p[1] - self.goal_y) < .43 and self.goal_front < p[0] <= self.center_x
+                                for p, _ in self._valued_disks(obs["rgb"], obs["image_time_s"], rotation, own=True))):
+                    self._plan_sweep(time, confirmed_raid=True)
+                else:
+                    self.phase = "done"
         elif self.phase == "late_yield" and (reached or elapsed >= 1.4):
             self.phase = "done"
         elif self.phase == "yield" and (reached or elapsed >= 2.):
