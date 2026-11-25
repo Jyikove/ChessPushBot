@@ -10,6 +10,7 @@ from piece_values import PieceValues
 MATCH_SECONDS = 120.
 APPROACH_SPEED = .20
 RETURN_SPEED = .17
+OPENING_LANE_STEP = .04
 # Wing (+1 enters from low Y), X past midfield, and edge of the goal to sweep.
 SWEEP_REGIONS = ((-1, .56, .13), (1, .27, -.13),
                  (1, .59, -.03), (-1, .28, .04))
@@ -46,6 +47,7 @@ class Policy:
         self.last_delivery = 0.
         self.raid_entries = []
         self.raid_denied = 0
+        self.opening_lane_step = 0.
         self.recovery_tried = False
         self.rank_model = None
         self.rank_stamp = None
@@ -89,6 +91,7 @@ class Policy:
         self._move_to("approach", approach, 0., time)
 
     def _look(self, time):
+        self.opening_lane_step = 0.
         self._observe("look", self.wing * math.radians(112), time)
 
     def _observe(self, phase, heading, time):
@@ -414,8 +417,19 @@ class Policy:
         self.entry = np.array([max(self.center_x + .64, self.entry[0] + .12), lane])
         self._move_to("detour", (self.entry[0], self.rollout_y - self.wing * .10), 0., time)
 
+    def _opening_lane_step(self, frame, stamp, rotation):
+        # Sample the edge of a confirmed high-value cluster without crossing
+        # the pile to center the first push on its deepest piece.
+        for point, value in self._valued_disks(frame, stamp, rotation, own=True):
+            if (value == 10 and self.entry[1] + .08 < point[1] < self.goal_lane[1] and
+                    self.center_x - .20 < point[0] < self.entry[0] - .21):
+                return OPENING_LANE_STEP
+        return 0.
+
     def _deliver(self, time):
         lane = self.goal_y - .04 + .08 * self.sweep if self.sweep < 2 else self.delivery_lane
+        if self.sweep == 0:
+            lane += self.opening_lane_step
         self.wall_frame = None
         self.wall_distance = None
         self.exit_reason = None
@@ -939,12 +953,17 @@ class Policy:
             frame = self._fresh_frame(obs, aligned)
             if frame is not None:
                 self.blocked_frames += self._blocked(frame, rotation)
+                if self.sweep == 0 and not self.deep:
+                    self.opening_lane_step = (0. if self.blocked_frames else
+                                              self._opening_lane_step(frame, obs["image_time_s"], rotation))
             if self.blocked_frames >= 2:
                 if not self.deep and can_detour and not (self.sweep >= 2 and self.short):
                     self._detour(time)
                 else:
                     self._leave_entry(yaw, time, retry=False)
             elif aligned and (self.frames >= 3 or elapsed >= 2.8):
+                if self.sweep == 0:
+                    self.entry[1] = min(self.goal_lane[1], self.entry[1] + self.opening_lane_step)
                 self._move_to("enter", self.entry, math.pi, time)
             elif elapsed >= 3.3:
                 self._leave_entry(yaw, time, retry=not self.deep and can_detour)
