@@ -140,6 +140,25 @@ class Policy:
         elif abs(corrected_x - self.pos[0]) <= .20:
             self.pos[0] = corrected_x
 
+    def _end_wall_distance(self, rgb, rotation):
+        # Track the visible bottom of the end wall even when disks hide the goal outline.
+        cols = np.arange(52, rgb.shape[1] - 51, 6)
+        wall = np.median(rgb[88:145, 155:485], axis=(0, 1))
+        similar = np.max(np.abs(rgb[140:, cols] - wall), axis=2) <= 12
+        visible = similar[:-4] | similar[1:-3] | similar[2:-2] | similar[3:-1] | similar[4:]
+        rows = np.argmax(~visible, axis=0) + 140
+        supported = (rows > 190) & (rows < 459)
+        edge = np.zeros(rgb.shape[:2], dtype=bool)
+        edge[rows[supported], cols[supported]] = True
+        points = self._edge_points(edge, rotation)
+        if len(points) < 16:
+            return None
+        # A disk occluding the seam makes the wall look farther away.
+        distances = -points[:, 0]
+        near = float(np.quantile(distances, .2))
+        if .15 < near < 1.16 and np.count_nonzero(np.abs(distances - near) < .035) >= 12:
+            return near
+
     def _blocked(self, rgb, rotation):
         # The amber push plate is distinct from the red and white glyphs.
         hsv = cv2.cvtColor(rgb, cv2.COLOR_RGB2HSV)
@@ -159,9 +178,12 @@ class Policy:
                 return True
         return False
 
-    def _push_has_target(self, rgb):
+    def _push_has_target(self, rgb, rotation):
         # A compact dark silhouette of disk width ahead of the push face.
         # Check both colors so an occluding opponent piece cannot hide a batch.
+        end_wall = self._end_wall_distance(rgb, rotation)
+        # Exclude the disks already past our goal line when the wall is visible.
+        reach = 1.35 if end_wall is None else min(1.35, end_wall - self.goal_front + .012)
         gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
         mask = cv2.inRange(gray, 0, 80)
         _, _, boxes, _ = cv2.connectedComponentsWithStats(mask)
@@ -169,7 +191,7 @@ class Policy:
             if width < 11 or height < 5 or area < .28 * width * height:
                 continue
             piece = self._floor_point(x + .5 * width, y + height - 1)
-            if piece is None or not (.15 < piece[0] < 1.35 and abs(piece[1]) < .20):
+            if piece is None or not (.15 < piece[0] < reach and abs(piece[1]) < .20):
                 continue
             width_m = width * (piece[0] - self.camera_origin[0]) / self.intrinsics[0, 0]
             if .027 < width_m < .19:
@@ -198,10 +220,15 @@ class Policy:
 
     def _deliver(self, time):
         lane = self.goal_y - .04 + .08 * self.sweep if self.sweep < 2 else self.delivery_lane
-        self._move_to("deliver", (self.goal_x, lane), math.pi, time)
+        self.wall_frame = None
+        self.wall_distance = None
+        self._move_to("deliver", (self.goal_x if self.sweep < 2 else self.goal_front - .052, lane),
+                      math.pi, time)
 
-    def _retreat(self, time):
-        self._move_to("retreat", (self.goal_x + .34, self.pos[1]), math.pi, time)
+    def _retreat(self, time, yaw):
+        clear_x = self.goal_x + .34 if self.sweep < 2 else self.goal_front + .27
+        heading = math.pi if self.sweep < 2 else yaw
+        self._move_to("retreat", (clear_x, self.pos[1]), heading, time)
 
     def _next_sweep(self, time):
         self.sweep += 1
@@ -280,13 +307,32 @@ class Policy:
                 self.wing = 1
                 self.rollout_y = self.center_y - .45
                 self._plan_sweep(time)
-        self.pos += rotation @ (self.inverse @ (encoder - self.previous))[:2]
+        travel = rotation @ (self.inverse @ (encoder - self.previous))[:2]
+        self.pos += travel
         self.previous = encoder
         if (self.sweep >= 2 and self.phase in ("check", "deliver", "retreat") and
                 abs(wrap(math.pi - yaw)) < .13):
             self._correct_at_goal(obs, rotation)
 
         error = wrap(self.heading - yaw)
+        guarded_return = self.sweep >= 2 and self.phase in ("deliver", "retreat")
+        goal_distance = self.pos[0]
+        if guarded_return:
+            if self.wall_distance is not None:
+                self.wall_distance += travel[0]
+            stamp = obs["image_time_s"]
+            if (obs["rgb"] is not None and stamp is not None and stamp != self.wall_frame and
+                    time - stamp <= .11 and abs(error) < .20 and abs(gyro) < .30):
+                self.wall_frame = stamp
+                distance = self._end_wall_distance(obs["rgb"], rotation)
+                if distance is not None and distance < .76:
+                    self.wall_distance = distance
+            if self.wall_distance is not None:
+                goal_distance = self.wall_distance
+            # Keep the departure waypoint planner in the same coordinate frame.
+            if self.phase == "retreat" and self.wall_distance is not None:
+                self.pos[0] = goal_distance
+
         aligned = abs(error) < .15
         reached = np.linalg.norm(self.target - self.pos) < .034 and aligned
         elapsed = time - self.since
@@ -323,21 +369,22 @@ class Policy:
                 self._leave_entry(yaw, time, retry=not self.deep and can_detour)
         elif self.phase == "check":
             frame = self._fresh_frame(obs, aligned)
-            if ((frame is not None and self._push_has_target(frame)) or
-                    remaining <= self._return_seconds(self.pos[0]) or
-                    (self.frames == 0 and elapsed >= .8)):
+            due = remaining <= self._return_seconds(self.pos[0])
+            if ((frame is not None and self._push_has_target(frame, rotation)) or
+                    (self.frames == 0 and (due or elapsed >= .8))):
                 self._deliver(time)
-            elif self.frames >= 2 or elapsed >= .8:
+            elif self.frames >= 2 or due or elapsed >= .8:
                 self._leave_entry(yaw, time, retry=False)
         elif self.phase == "clear" and (reached or elapsed >= 2.5):
             if self.retry_entry and can_detour:
                 self._detour(time)
             else:
                 self._next_sweep(time)
-        elif self.phase == "deliver" and (self.pos[0] <= self.goal_x + .034 or elapsed >= 12.):
-            self._retreat(time)
-        elif self.phase == "retreat" and (reached or elapsed >= 3. or
-                (self.sweep >= 2 and self.pos[0] >= self.target[0] - .034)):
+        elif self.phase == "deliver" and (goal_distance <= self.target[0] + .034 or elapsed >= 12. or
+                (guarded_return and goal_distance < .58 and abs(error) > .25)):
+            self._retreat(time, yaw)
+        elif self.phase == "retreat" and (reached or elapsed >= (3.6 if guarded_return else 3.) or
+                (guarded_return and goal_distance >= self.target[0] - .034)):
             if self.sweep == 1 and aligned:
                 self._correct_at_goal(obs, rotation)
             self._next_sweep(time)
@@ -359,8 +406,15 @@ class Policy:
             # Keep the push face square and bleed off cross-track error gradually.
             p[1] = np.clip(p[1], -.023, .023)
             yaw_limit = .50
+            if guarded_return:
+                p[0] = -max(0., 2. * (goal_distance - self.target[0]))
+                if goal_distance < .62:
+                    p[1] = 0.
+                    speed, yaw_limit = .13, .30
         elif self.phase == "retreat" and self.sweep >= 2:
-            p[1] = 0.
+            back = max(0., 2. * (self.target[0] - goal_distance))
+            p = -back * np.array([math.cos(self.heading), math.sin(self.heading)])
+            yaw_limit = .30
         p *= min(1., speed / max(speed, np.linalg.norm(p)))
         w = np.clip(3. * error - .18 * gyro, -yaw_limit, yaw_limit)
         raw = (WHEEL @ np.r_[rotation.T @ p, .11 * w]) * (237. / .32)
