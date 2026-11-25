@@ -16,7 +16,7 @@ SWEEP_REGIONS = ((-1, .56, .13), (1, .27, -.13),
                  (1, .59, -.03), (-1, .28, .04))
 TRAFFIC_PHASES = ("outside", "reposition", "approach", "detour", "enter", "deliver")
 RAID_TRAVEL = ("raid_clear", "raid_lane", "raid_transit", "raid_align",
-               "raid_push", "raid_clearance", "raid_exit", "raid_rescan_shift")
+               "raid_push", "raid_clearance", "raid_exit", "raid_rescan_shift", "raid_survey")
 RECOVER_TRAVEL = ("recover_flank", "recover_transit", "recover_stage", "recover_align", "recover_push")
 WATCHED_TRAVEL = TRAFFIC_PHASES + RAID_TRAVEL + RECOVER_TRAVEL
 
@@ -54,6 +54,13 @@ class Policy:
         self.raid_rescan_shifted = False
         self.raid_rescan_advanced = False
         self.raid_entry_rechecked = False
+        self.survey_views = []
+        self.coverage_lanes = []
+        self.raid_coverage = None
+        self.coverage_guard = None
+        self.body_frame = None
+        self.body_moved_at = 0.
+        self.body_redirect_at = -math.inf
         self.opening_lane_step = 0.
         self.recovery_tried = False
         self.rank_model = None
@@ -374,7 +381,10 @@ class Policy:
     def _give_way(self, direction, yaw, time):
         # Reverse the approach before turning or picking a different region.
         if self.phase.startswith("raid_"):
-            if self.phase == "raid_rescan_shift":
+            if self.phase == "raid_survey":
+                phase = "raid_survey_yield"
+                self.exit_reason = "raid_survey_blocked"
+            elif self.phase == "raid_rescan_shift":
                 self.exit_retried = True
                 self.exit_reason = "raid_followup_shift_blocked"
                 phase = "raid_exit_yield"
@@ -882,6 +892,10 @@ class Policy:
             occupied = any(np.linalg.norm(plate) < 1.08 and
                            (self.pos + rotation @ plate)[0] > self.enemy_goal[0, 0] - .24
                            for plate in self._plates(frame))
+            if not occupied and MATCH_SECONDS - time >= 16.:
+                residual = self._coverage_targets(frame, obs["image_time_s"], rotation)
+                if self._plan_coverage(time, residual):
+                    return
             targets = self._raid_targets(frame, obs["image_time_s"], rotation)
             short = self._short_raid_choice(time, targets)
             if short and short[0] > 0.:
@@ -899,7 +913,7 @@ class Policy:
             if occupied:
                 # Briefly keep the defender and the scoring area in view.
                 # A departing car can uncover a useful target in the next frames.
-                if self.frames < 3 and time - self.since < 4.1 and MATCH_SECONDS - time >= 13.:
+                if self.frames < 3 and time - self.since < 1.2 and MATCH_SECONDS - time >= 13.:
                     return
                 self._finish_rescan(time, "raid_followup_occupied")
                 return
@@ -910,7 +924,7 @@ class Policy:
                 self.enemy_bank = time, targets
                 if self._plan_raid(time, MATCH_SECONDS - time - 2., minimum=0.):
                     return
-        if self.frames >= 3 or time - self.since >= 4.1:
+        if self.frames >= 3 or time - self.since >= 1.2:
             self._finish_rescan(time, "raid_followup_no_target")
 
     def _recheck_raid_entry(self, time, heading):
@@ -947,6 +961,10 @@ class Policy:
 
     def _end_raid(self, time, reason):
         self.exit_reason = reason
+        if self.raid_coverage is not None:
+            self.raid_coverage = None
+            self._survey(time)
+            return
         self.failed_sweeps = 0
         if reason == "raid_complete":
             seen, pieces = self.enemy_bank
@@ -1006,12 +1024,185 @@ class Policy:
         # Clear the scoring mouth before stopping, with the camera facing the escape corridor.
         self._move_to("raid_exit", target, math.atan2(delta[1], delta[0]), time)
 
+    def _survey(self, time):
+        goal = self.enemy_goal
+        center = goal.mean(axis=0)
+        clear_x = goal[0, 0] - .48
+        inner = goal[0, 0] - .34
+        views = [np.array([inner, center[1] + side * .49]) for side in (-1, 1)]
+        views += [np.array([clear_x - .22, center[1] + side * .30]) for side in (-1, 1)]
+        if self.coverage_guard is not None and time - self.coverage_guard[0] <= 12.:
+            # A protected mouth may leave only one flank open. Look from
+            # different depths on that flank instead of shuttling between two points.
+            views += [np.array([clear_x, center[1] + side * .68]) for side in (-1, 1)]
+            views += [np.array([clear_x - .48, center[1] + side * .48]) for side in (-1, 1)]
+        clearing_mouth = self.pos[0] > inner + .08
+        if clearing_mouth:
+            # Clear the mouth before crossing it laterally.
+            views = [np.array([clear_x, self.pos[1]])]
+        candidates = [(i, p) for i, p in enumerate(views)
+                      if np.linalg.norm(p - self.pos) >= .23 and
+                      self._survey_gap(time, p) >= .48]
+        if not candidates:
+            # Open the viewing angle away from the blocked entrance.
+            x = max(.60, self.pos[0] - .40)
+            alternatives = [np.array([x, np.clip(self.pos[1] + side * .28, .28, self.field[1] - .28)])
+                            for side in (-1, 1)]
+            target = max(alternatives, key=lambda p: self._survey_gap(time, p))
+        else:
+            fresh = [item for item in candidates if item[0] not in self.survey_views]
+            if not clearing_mouth:
+                if fresh:
+                    index, target = min(fresh, key=lambda item: np.linalg.norm(item[1] - self.pos))
+                else:
+                    # Start the next look from across the mouth instead of retracing the last leg.
+                    self.survey_views.clear()
+                    index, target = max(candidates, key=lambda item: np.linalg.norm(item[1] - self.pos))
+                self.survey_views.append(index)
+            else:
+                _, target = candidates[0]
+        delta = center - target
+        self._move_to("raid_survey", target, math.atan2(delta[1], delta[0]), time)
+
+    def _survey_gap(self, time, target, origin=None):
+        gap = self._recent_opponent_gap(time, target, origin)
+        if self.coverage_guard is None or time - self.coverage_guard[0] > 12.:
+            return gap
+        origin = self.pos if origin is None else origin
+        step = target - origin
+        relative = self.coverage_guard[1] - origin
+        along = np.clip(relative @ step / max(.01, step @ step), 0., 1.)
+        return min(gap, np.linalg.norm(relative - along * step))
+
+    def _plan_coverage(self, time, targets):
+        goal = self.enemy_goal
+        outer, inner = self.field[0] - .115, goal[0, 0] + .10
+        options = []
+        for wing in (1, -1):
+            stage_y = goal[0 if wing > 0 else 1, 1] - wing * .25
+            exit_y = goal[1 if wing > 0 else 0, 1] + wing * .17
+            turn = np.array([self.pos[0], stage_y])
+            if self._survey_gap(time, turn) < .56:
+                continue
+            for lane in (inner, outer):
+                # Verify once from each new side and depth. The same failed
+                # path cannot consume the remaining clock.
+                if (wing, lane) in self.coverage_lanes:
+                    continue
+                stage = np.array([lane, stage_y])
+                end = np.array([lane, exit_y])
+                if min(self._survey_gap(time, stage, origin=turn),
+                       self._survey_gap(time, end, origin=stage)) < .56:
+                    continue
+                swept = [(p, v) for p, v in targets
+                         if abs(min(p[0], self.field[0] - .035) - lane) <= .12]
+                if not swept:
+                    continue
+                seconds = (abs(self.pos[1] - stage_y) + abs(self.pos[0] - lane)) / .19
+                seconds += abs(exit_y - stage_y) / .15 + 6.
+                value = self._utility(time, seconds, deny=self._points(swept),
+                                      risk=self._entry_risk(time, wing, stage_y))
+                if value > 0.:
+                    options.append((value, -seconds, wing, lane, stage_y))
+        if not options:
+            return False
+        _, _, wing, lane, stage_y = max(options)
+        self.coverage_lanes.append((wing, lane))
+        self.raid_coverage = lane
+        self.raid_short_target = None
+        self.raid_wing = wing
+        self.raid_push_offset = 0.
+        self.raid_deadline = MATCH_SECONDS - 4.5
+        # Turn the nose away from the end wall before sliding the plate deep.
+        self.raid_scout = np.array([min(lane, self.field[0] - .17), stage_y])
+        self._move_to("raid_lane", (self.pos[0], stage_y), 0., time)
+        return True
+
+    def _coverage_scan(self, obs, rotation, aligned):
+        time = obs["time_s"]
+        frame = self._fresh_frame(obs, aligned)
+        if frame is not None:
+            self._raid_goal_side(frame, rotation)
+            targets = self._coverage_targets(frame, obs["image_time_s"], rotation)
+            gap, blocked = self._traffic_ahead(obs, np.array([1., 0.]))
+            if self._coverage_blocked(frame, rotation, time) or blocked:
+                self._give_way(rotation[:, 0], self.heading, time)
+                return
+            if (self.frames >= 2 and not math.isfinite(gap) and
+                    any(abs(min(p[0], self.field[0] - .035) - self.raid_coverage) <= .14
+                        for p, _ in targets)):
+                self.raid_denied = self._points(targets)
+                heading = self.heading
+                if self.raid_coverage > self.field[0] - .13:
+                    heading -= self.raid_wing * .11
+                self._move_to("raid_align", (self.raid_coverage, self.pos[1]), heading, time)
+                return
+        if self.frames >= 3 or time - self.since >= 2.4:
+            self.raid_coverage = None
+            self._survey(time)
+
+    def _coverage_targets(self, frame, stamp, rotation):
+        lo, hi = self.enemy_goal
+        # The disk projection can land a few centimeters behind the wall
+        # when looking down the rail. Keep those detections in the wall lane.
+        return [(p, value) for p, value in self._valued_disks(frame, stamp, rotation, own=False)
+                if lo[0] + .025 < p[0] < hi[0] + .045 and lo[1] + .005 < p[1] < hi[1] - .005]
+
+    def _coverage_blocked(self, frame, rotation, time):
+        # Include a guard beside the far half of the lane, before the push
+        # commits. The standard short-range check stays active as well.
+        for plate in self._plates(frame):
+            forward, lateral = plate
+            if .16 < forward < 1.26 and abs(lateral) < .50:
+                self.coverage_guard = time, self.pos + rotation @ plate
+                return True
+        return False
+
+    def _body_still(self, obs, yaw):
+        time = obs["time_s"]
+        stamp = obs["image_time_s"]
+        if stamp is not None and obs["rgb"] is not None and time - stamp <= .23:
+            previous = self.body_frame
+            if previous is None or stamp > previous[0]:
+                image = cv2.resize(obs["rgb"], (160,120), interpolation=cv2.INTER_AREA)
+                gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)[35:108, 8:152]
+                self.body_frame = stamp, yaw, gray
+                if previous is None or abs(wrap(yaw - previous[1])) >= .014:
+                    self.body_moved_at = time
+                elif stamp - previous[0] <= .32:
+                    corners = cv2.goodFeaturesToTrack(previous[2], 40, .005, 5)
+                    if corners is not None and len(corners) >= 5:
+                        tracked, status, _ = cv2.calcOpticalFlowPyrLK(previous[2], gray, corners, None)
+                        if tracked is not None and status is not None and np.count_nonzero(status) >= 5:
+                            valid = status.ravel() == 1
+                            flow = np.linalg.norm((tracked - corners).reshape(-1,2)[valid], axis=1)
+                            if np.quantile(flow, .75) >= .26:
+                                self.body_moved_at = time
+        if time - self.body_moved_at >= 1.15 and time - self.body_redirect_at >= 1.1:
+            self.body_redirect_at = time
+            return True
+        return False
+
     def _raid_step(self, obs, rotation, reached, aligned, blocked, direction, yaw):
         time = obs["time_s"]
         elapsed = time - self.since
         heading = self.raid_wing * math.pi / 2
         if blocked:
             self._give_way(direction, yaw, time)
+        elif self.phase == "raid_survey":
+            if (obs["image_time_s"] == time and obs["rgb"] is not None and aligned and
+                    self.pos[0] <= self.enemy_goal[0, 0] - .29):
+                frame = obs["rgb"]
+                # Track a guard while it is in view, including during retreat.
+                self._coverage_blocked(frame, rotation, time)
+                targets = self._coverage_targets(frame, time, rotation)
+                if targets and self._plan_coverage(time, targets):
+                    return
+            if reached or elapsed >= 6.:
+                self._survey(time)
+        elif self.phase == "raid_survey_yield":
+            if reached or elapsed >= 1.7:
+                self._survey(time)
         elif self.phase == "raid_backout":
             if reached:
                 self._end_raid(time, "raid_complete")
@@ -1038,6 +1229,9 @@ class Policy:
                 self.exit_reason = "raid_exit_blocked"
                 self.phase = "done"
         elif self.phase == "raid_yield" and (reached or elapsed >= 2.):
+            if self.raid_coverage is not None:
+                self._end_raid(time, "raid_coverage_yield")
+                return
             if self.raid_short_target is not None:
                 self._raid_exit(time, "raid_short_blocked")
                 return
@@ -1063,6 +1257,9 @@ class Policy:
             self.raid_target_seen = False
             self._observe("raid_scan", heading, time)
         elif self.phase == "raid_scan":
+            if self.raid_coverage is not None:
+                self._coverage_scan(obs, rotation, aligned)
+                return
             if self.raid_short_target is not None:
                 self._short_raid_scan(obs, rotation, aligned)
                 return
@@ -1100,22 +1297,32 @@ class Policy:
                     self._raid_exit(time, "raid_no_target")
                 elif not self._plan_raid(time, MATCH_SECONDS - time):
                     self._end_raid(time, "raid_no_target")
-        elif self.phase == "raid_align" and reached:
+        elif self.phase == "raid_align" and reached and (
+                self.raid_coverage is None or abs(self.pos[0] - self.target[0]) < .013):
             self.raid_carry_observation = None
             exit_y = self.enemy_goal[1 if self.raid_wing > 0 else 0, 1] + self.raid_wing * .09
             self.raid_pushed_lane = self.pos[0]
+            if self.raid_coverage is not None:
+                exit_y += self.raid_wing * .08
             end = (self.pos[0] - self.raid_push_offset, exit_y)
             delta = end - self.pos
             push_heading = math.atan2(delta[1], delta[0])
+            if self.raid_coverage is not None and self.raid_coverage > self.field[0] - .13:
+                # Lead with the tip nearest the rail to reach wall-hugging disks.
+                push_heading -= self.raid_wing * .11
             self._move_to("raid_push", end, push_heading, time)
         elif self.phase == "raid_push":
+            if (self.raid_coverage is not None and obs["rgb"] is not None and obs["image_time_s"] == time and
+                    self._coverage_blocked(obs["rgb"], rotation, time)):
+                self._give_way(direction, yaw, time)
+                return
             if reached and self.raid_push_offset > 0.:
                 # Retrace the swept strip instead of crossing the receiving flank.
                 forward = np.array([math.cos(self.heading), math.sin(self.heading)])
                 self._move_to("raid_backout", self.pos - .80 * forward, self.heading, time)
                 return
             remaining = MATCH_SECONDS - time
-            can_clear = (self.raid_short_target is None and 9. <= remaining <= 22. and
+            can_clear = (self.raid_coverage is None and self.raid_short_target is None and 9. <= remaining <= 22. and
                          not math.isfinite(self.traffic_gap))
             diagonal = (can_clear and remaining >= 11. and self.raid_denied < 10 and
                         self._raid_carries_residual(obs, rotation, aligned))
@@ -1151,6 +1358,10 @@ class Policy:
             first_tick = self.reset_id is None
             self.reset_id = obs["reset_id"]
             self.pos = self.origin.copy()
+            self.body_frame = None
+            self.body_moved_at = time
+            self.coverage_guard = None
+            self.raid_coverage = None
             self.previous = encoder
             self.goal_frame = None
             self.exit_reason = None
@@ -1248,8 +1459,18 @@ class Policy:
             gap, blocked = self._traffic_ahead(obs, rotation.T @ traffic_direction)
         if remaining <= 0.:
             self.phase = "done"
+        elif self._body_still(obs, yaw):
+            if blocked or self.phase in ("raid_push", "raid_clearance", "deliver"):
+                self._give_way(traffic_direction, yaw, time)
+            else:
+                self.raid_coverage = None
+                self._survey(time)
+            self.exit_reason = "body_still_replan"
         elif watched and not blocked and self._no_progress(obs, yaw):
-            self._give_way(traffic_direction, yaw, time)
+            if self.phase == "raid_survey":
+                self._survey(time)
+            else:
+                self._give_way(traffic_direction, yaw, time)
             self.exit_reason = "visual_stall"
         elif self.phase.startswith("raid_"):
             self._raid_step(obs, rotation, reached, aligned, blocked, traffic_direction, yaw)
@@ -1329,7 +1550,10 @@ class Policy:
             self.failed_sweeps += 1
             self._next_sweep(time)
         if self.phase == "done":
-            return {"motor_pwm": [0, 0, 0, 0]}
+            if remaining <= 0.:
+                return {"motor_pwm": [0, 0, 0, 0]}
+            self.raid_coverage = None
+            self._survey(time)
 
         error = wrap(self.heading - yaw)
         p = 2. * (self.target - self.pos)
@@ -1351,7 +1575,7 @@ class Policy:
             back = max(0., 2. * (self.target[0] - goal_distance))
             p = -back * np.array([math.cos(self.heading), math.sin(self.heading)])
             yaw_limit = .30
-        elif self.phase in ("yield", "raid_yield", "recover_yield", "raid_exit_yield"):
+        elif self.phase in ("yield", "raid_yield", "recover_yield", "raid_exit_yield", "raid_survey_yield"):
             speed, yaw_limit = .18, .30
         elif self.phase in ("raid_push", "raid_clearance"):
             speed, yaw_limit = .16, .30
