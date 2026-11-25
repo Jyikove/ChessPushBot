@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 
 from core import WHEEL, wrap
+from piece_values import PieceValues
 
 MATCH_SECONDS = 120.
 APPROACH_SPEED = .20
@@ -13,7 +14,7 @@ RETURN_SPEED = .17
 SWEEP_REGIONS = ((-1, .56, .13), (1, .27, -.13),
                  (1, .59, -.03), (-1, .28, .04))
 TRAFFIC_PHASES = ("outside", "reposition", "approach", "detour", "enter", "deliver")
-RAID_TRAVEL = ("raid_clear", "raid_lane", "raid_transit", "raid_align", "raid_push")
+RAID_TRAVEL = ("raid_clear", "raid_lane", "raid_transit", "raid_align", "raid_push", "raid_exit")
 RECOVER_TRAVEL = ("recover_flank", "recover_transit", "recover_stage", "recover_align", "recover_push")
 WATCHED_TRAVEL = TRAFFIC_PHASES + RAID_TRAVEL + RECOVER_TRAVEL
 
@@ -44,6 +45,14 @@ class Policy:
         self.last_delivery = 0.
         self.raid_entries = []
         self.recovery_tried = False
+        self.rank_model = None
+        self.rank_stamp = None
+        self.rank_observations = []
+        self.rank_raw = []
+        self.opponent = None
+        self.home_bank = (0., 0.)
+        self.home_loose = (0., [])
+        self.enemy_bank = (0., [])
 
     def _local(self, xy):
         xy = np.asarray(xy, dtype=float)
@@ -224,6 +233,90 @@ class Policy:
                 self.traffic_hits = 0
         return self.traffic_gap, self.traffic_hits >= 2
 
+    def _remember_opponent(self, plate, rotation, time):
+        position = self.pos + rotation @ plate
+        velocity = np.zeros(2)
+        if self.opponent is not None:
+            last, previous, old_velocity = self.opponent
+            age = time - last
+            if .15 <= age <= .45:
+                pace = (position - previous) / age
+                if np.linalg.norm(pace) < .55:
+                    velocity = .55 * old_velocity + .45 * pace
+        self.opponent = time, position, velocity
+
+    def _entry_risk(self, time, wing, y):
+        if self.opponent is None or time - self.opponent[0] > 3.:
+            return .18
+        _, p, v = self.opponent
+        # Approaching a wing increases its risk. A visibly departing opponent
+        # gives that entrance a short-lived advantage.
+        if p[0] < self.enemy_goal[0, 0] - .65:
+            return .06
+        predicted_y = p[1] + 1.2 * v[1]
+        if wing * (v[1]) > .06 and abs(predicted_y - y) > abs(p[1] - y):
+            return .07
+        if abs(predicted_y - y) < .45:
+            return .65
+        return .15
+
+    def _utility(self, time, seconds, own=0., deny=0., loss=0., risk=0.):
+        after = MATCH_SECONDS - time - seconds
+        if after < 0. or risk >= 1.:
+            return -math.inf
+        # Denial near the horn is harder to undo. All terms are in points
+        # until the time discount, so a long route needs a larger payoff.
+        last_chance = max(0., 1. - after / 48.)
+        retained = .60 + .40 * last_chance ** 2
+        return ((own + retained * deny) * (1. - risk) - loss) / (1. + seconds / 14.)
+
+    def _home_exposure(self, time, seconds):
+        seen, points = self.home_bank
+        if time - seen > 24. or points <= 0.:
+            return 0.
+        risk = .05
+        if self.opponent is not None and time - self.opponent[0] <= 5.:
+            _, p, v = self.opponent
+            if p[0] < 1.35 and (v[0] < -.035 or p[0] < .65):
+                risk = .32
+        return points * risk * min(1., seconds / 20.)
+
+    def _ranked_pieces(self, rgb, stamp, rotation):
+        if stamp == self.rank_stamp:
+            return self.rank_observations
+        if self.rank_model is None:
+            self.rank_model = PieceValues()
+        previous = self.rank_raw if self.rank_stamp is not None and stamp - self.rank_stamp <= .45 else []
+        raw, confirmed = [], []
+        for box, team, score in self.rank_model.observe(rgb):
+            x0, _, x1, y1 = box
+            point = self._floor_point((x0 + x1) / 2, y1 - 1.)
+            if point is None or not .19 < point[0] < 1.35:
+                continue
+            position = self.pos + rotation @ (point[:2] + [.028, 0.])
+            raw.append((position, team, score))
+            agree = score is not None and any(
+                side == team and value == score and np.linalg.norm(at - position) < .07
+                for at, side, value in previous
+            )
+            confirmed.append((position, team, score if agree else None))
+        self.rank_stamp, self.rank_raw, self.rank_observations = stamp, raw, confirmed
+        return confirmed
+
+    def _valued_disks(self, rgb, stamp, rotation, own):
+        red = not self.reverse if own else self.reverse
+        team = "A" if red else "B"
+        observed = [(p, value) for p, side, value in self._ranked_pieces(rgb, stamp, rotation)
+                    if side == team]
+        for p in self._colored_disks(rgb, rotation, red):
+            if all(np.linalg.norm(p - previous) > .052 for previous, _ in observed):
+                observed.append((p, None))
+        return observed
+
+    @staticmethod
+    def _points(offers):
+        return sum(1 if value is None else value for _, value in offers)
+
     def _no_progress(self, obs, yaw):
         stamp = obs["image_time_s"]
         if obs["rgb"] is None or stamp is None or obs["time_s"] - stamp > .23:
@@ -243,22 +336,30 @@ class Policy:
         yaw_changed = abs(wrap(yaw - previous[1])) >= .018
         quiet = turn >= .42 and drive < .07 and not yaw_changed
         if drive >= .10 and not yaw_changed:
-            corners = cv2.goodFeaturesToTrack(previous[2], 32, .025, 6)
+            mask = None
+            if self.phase in ("deliver", "raid_push", "recover_push"):
+                # Disks already carried with the car are poor motion landmarks.
+                mask = np.full(previous[2].shape, 255, dtype=np.uint8)
+                mask[38:, 24:-24] = 0
+            corners = cv2.goodFeaturesToTrack(previous[2], 32, .025, 6, mask=mask)
             if corners is not None and len(corners) >= 6:
                 tracked, status, _ = cv2.calcOpticalFlowPyrLK(previous[2], gray, corners, None)
                 if tracked is not None and status is not None:
                     valid = status.ravel() == 1
                     if valid.sum() >= 6:
                         motion = np.linalg.norm((tracked - corners).reshape(-1, 2)[valid], axis=1)
-                        quiet = float(np.median(motion)) < .60
+                        quiet = float(np.quantile(motion, .75)) < .60
         self.motion_quiet = self.motion_quiet + stamp - previous[0] if quiet else 0.
         return self.motion_quiet >= 1.2 - 1e-6
 
     def _give_way(self, direction, yaw, time):
         # Reverse the approach before turning or picking a different region.
         if self.phase.startswith("raid_"):
-            self.exit_reason = "raid_blocked"
-            phase = "raid_yield"
+            if self.phase == "raid_exit":
+                phase = "raid_exit_yield"
+            else:
+                self.exit_reason = "raid_blocked"
+                phase = "raid_yield"
         elif self.phase.startswith("recover_"):
             self.exit_reason = "recovery_blocked"
             self.recover_resume = self.phase == "recover_transit" and not self.recover_retried
@@ -330,8 +431,13 @@ class Policy:
             self._move_to("outside", (self.goal_x + .57, self.center_y - .44), 0., time)
             return
         self.sweep = max(self.sweep, 2)
-        if self.sweep >= 3 and self._plan_recovery(time):
-            return
+        if self.sweep >= 3:
+            seen, offers = self.enemy_bank
+            if time - seen < 18. and any(value == 10 for _, value in offers):
+                if self._plan_raid(time, MATCH_SECONDS - time, minimum=max(0., self._known_recovery_value(time))):
+                    return
+            if self._plan_recovery(time):
+                return
         self._plan_sweep(time)
 
     def _return_seconds(self, x):
@@ -342,10 +448,6 @@ class Policy:
         self.region = (self.region + 1) % len(SWEEP_REGIONS)
         staging_x = self.goal_x + .57
         available = MATCH_SECONDS - time
-        if (self.failed_sweeps >= 2 or
-                (self.failed_sweeps and time - self.last_delivery >= 23. and available <= 36.)):
-            if self._plan_raid(time, max_cost=available):
-                return
         near_wing = self.wing
         candidates = ((wing, self.center_x + depth, lane),
                       (wing, self.center_x - .40, lane),
@@ -371,6 +473,16 @@ class Policy:
             entry_seconds = 4.5 if entry_x <= self.goal_x + .62 else 6.
             budget = approach_time + self._return_seconds(entry_x) + entry_seconds
             if available >= budget:
+                gain = (1.5 if entry_x < self.center_x else 3.) / (1 + self.failed_sweeps)
+                if self.recovery_tried and available <= 36.:
+                    gain *= .55
+                threat = self._home_exposure(time, budget) * .35
+                own = self._utility(time, budget, own=gain, loss=threat, risk=.15)
+                if self.sweep >= 3 and (self.failed_sweeps or self.recovery_tried):
+                    if self._plan_raid(time, max_cost=available, minimum=max(0., own)):
+                        return
+                    if own <= 0.:
+                        break
                 self.wing = wing
                 self.rollout_y = rollout_y
                 self.delivery_lane = self.goal_y + lane
@@ -383,11 +495,11 @@ class Policy:
                 else:
                     self._move_to("reposition", reposition, math.pi, time)
                 return
-        if self.failed_sweeps and self._plan_raid(time, max_cost=available):
+        if (self.failed_sweeps or self.recovery_tried) and self._plan_raid(time, max_cost=available, minimum=0.):
             return
         self.phase = "done"
 
-    def _plan_raid(self, time, max_cost):
+    def _plan_raid(self, time, max_cost, minimum=0.):
         goal = self.enemy_goal
         scout_x = goal[:, 0].mean() - .04
         clear_x = goal[0, 0] - .26
@@ -401,12 +513,17 @@ class Policy:
             lane_x = min(self.pos[0], clear_x) if clear else self.pos[0]
             travel = abs(self.pos[0] - lane_x) + abs(self.pos[1] - side_y) + abs(scout_x - lane_x)
             cost = travel / APPROACH_SPEED + (np.ptp(goal[:, 1]) + .37) / .16 + 3.5
-            candidates.append((cost, wing, side_y, scout_x, lane_x, clear))
+            if cost > max_cost:
+                continue
+            stamp, pieces = self.enemy_bank
+            denial = self._points(pieces) if time - stamp < 18. and pieces else 2.2
+            risk = self._entry_risk(time, wing, side_y)
+            value = self._utility(time, cost, deny=denial, loss=self._home_exposure(time, cost), risk=risk)
+            if value > minimum:
+                candidates.append((-value, cost, wing, side_y, scout_x, lane_x, clear))
         if not candidates:
             return False
-        cost, wing, side_y, scout_x, lane_x, clear = min(candidates)
-        if cost > max_cost:
-            return False
+        _, cost, wing, side_y, scout_x, lane_x, clear = min(candidates)
         self.raid_entries.append(wing)
         self.raid_wing = wing
         self.raid_scout = np.array([scout_x, side_y])
@@ -440,17 +557,38 @@ class Policy:
             if matches:
                 yield self.pos + rotation @ (point[:2] + [.026, 0.])
 
-    def _raid_targets(self, rgb, rotation):
-        # Each reliably visible opposing disk is worth at least one point.
-        return [p for p in self._colored_disks(rgb, rotation, self.reverse)
-                if np.all(p > self.enemy_goal[0] + .02) and np.all(p < self.enemy_goal[1] - .02)]
+    def _raid_targets(self, rgb, stamp, rotation):
+        return [(p, value) for p, value in self._valued_disks(rgb, stamp, rotation, own=False)
+                if np.all(p > self.enemy_goal[0] + .025) and np.all(p < self.enemy_goal[1] - .025)]
 
-    def _plan_recovery(self, time):
-        if self.recovery_tried or time < 53. or (not self.failed_sweeps and self.pos[0] > .85):
+    def _raid_choice(self, time, targets):
+        elapsed = MATCH_SECONDS - time
+        if not targets:
+            return None
+        end = self.enemy_goal[1 if self.raid_wing > 0 else 0, 1] + .09 * self.raid_wing
+        wing_risk = self._entry_risk(time, self.raid_wing, self.pos[1])
+        options = []
+        for p, _ in targets:
+            lane = float(np.clip(p[0], self.enemy_goal[0, 0] + .10, self.field[0] - .15))
+            path = abs(lane - self.pos[0]) / .15 + abs(end - self.pos[1]) / .16 + 1.
+            if path > elapsed:
+                continue
+            swept = [(q, v) for q, v in targets if abs(q[0] - lane) < .125]
+            denied = self._points(swept)
+            utility = self._utility(time, path, deny=denied,
+                                    loss=self._home_exposure(time, path), risk=wing_risk)
+            options.append((utility, denied, -path, lane))
+        return max(options) if options else None
+
+    def _plan_recovery(self, time, verified=False):
+        if self.recovery_tried or time < 53. or (not verified and not self.failed_sweeps and self.pos[0] > .85):
             return False
-        if self.pos[0] > 2.27:
+        if self.pos[0] > 2.27 and not verified:
             return False
-        wing = 1 if self.pos[1] >= self.goal_y else -1
+        y = self.pos[1]
+        if verified:
+            y = max(self.home_loose[1], key=lambda offer: offer[1] or 1)[0][1]
+        wing = 1 if y >= self.goal_y else -1
         outer = self.field[1] - .20 if wing > 0 else .20
         scout_x = self.home_goal[1, 0] + .24
         approach = abs(self.pos[0] - scout_x) + abs(outer - self.pos[1])
@@ -468,8 +606,16 @@ class Policy:
         return True
 
     def _finish_recovery(self, time):
-        if not self._plan_raid(time, MATCH_SECONDS - time):
-            self._plan_sweep(time)
+        self.home_loose = (time, [])
+        self._plan_sweep(time)
+
+    def _known_recovery_value(self, time):
+        seen, pieces = self.home_loose
+        if self.recovery_tried or time - seen > 18. or not pieces:
+            return 0.
+        _, value = max(pieces, key=lambda offer: offer[1] or 1)
+        path = max(0., self.pos[0] - self.goal_front) / APPROACH_SPEED + 10.
+        return self._utility(time, path, own=value or 1, risk=.22)
 
     def _recovery_step(self, obs, rotation, reached, aligned, blocked, direction, yaw):
         time = obs["time_s"]
@@ -495,12 +641,15 @@ class Policy:
         elif self.phase == "recover_scan":
             frame = self._fresh_frame(obs, aligned)
             if frame is not None:
-                targets = [p for p in self._colored_disks(frame, rotation, not self.reverse)
+                targets = [(p, value) for p, value in self._valued_disks(
+                               frame, obs["image_time_s"], rotation, own=True)
                            if .06 < p[0] < self.home_goal[1, 0] - .026 and
                            .015 < wing * (p[1] - self.recover_line) < .34]
                 if targets and self.frames >= 2:
-                    # Take the disk closest to the line, with space behind it.
-                    x, y = min(targets, key=lambda p: wing * (p[1] - self.recover_line))
+                    # Compare score and travel while leaving room behind the disk.
+                    (x, y), _ = max(targets, key=lambda t: self._utility(
+                        time, 5. + max(0., wing * (t[0][1] - self.recover_line)) / .14,
+                        own=t[1] or 1, risk=.12))
                     self.recover_lane_x = float(np.clip(x + .025, .16, .30))
                     self._move_to("recover_stage", (self.pos[0], y + wing * .23), heading, time)
                     return
@@ -539,6 +688,9 @@ class Policy:
     def _end_raid(self, time, reason):
         self.exit_reason = reason
         self.failed_sweeps = 0
+        if reason == "raid_complete":
+            seen, pieces = self.enemy_bank
+            self.enemy_bank = seen, [(p, v) for p, v in pieces if abs(p[0] - self.raid_pushed_lane) > .15]
         # After a sweep, an unobserved short pickup at home is not worth
         # crossing the field again unless there is time for a full collection.
         home_budget = max(0., self.pos[0] - self.goal_front) / APPROACH_SPEED
@@ -548,16 +700,49 @@ class Policy:
             return
         self._plan_sweep(time)
 
+    def _raid_exit(self, time, reason, retry=False):
+        self.exit_reason = reason
+        goal = self.enemy_goal
+        if reason == "raid_no_target":
+            flank = -self.raid_wing
+        else:
+            flank = self.raid_wing
+        line = goal[1 if flank > 0 else 0, 1]
+        target = np.array([goal[0, 0] - .60, line + flank * (.24 if retry else .09)])
+        if retry and self.opponent is not None and time - self.opponent[0] <= 3.:
+            _, p, v = self.opponent
+            obstacle = p + .7 * v
+            alternatives = (target, np.array([target[0], line - flank * .16]))
+            def clearance(point):
+                step = point - self.pos
+                along = np.clip((obstacle - self.pos) @ step / max(.01, step @ step), 0., 1.)
+                return np.linalg.norm(obstacle - self.pos - along * step)
+            target = max(alternatives, key=clearance)
+        delta = target - self.pos
+        self.exit_retried = retry
+        # Clear the scoring mouth before stopping, with the camera facing the escape corridor.
+        self._move_to("raid_exit", target, math.atan2(delta[1], delta[0]), time)
+
     def _raid_step(self, obs, rotation, reached, aligned, blocked, direction, yaw):
         time = obs["time_s"]
         elapsed = time - self.since
         heading = self.raid_wing * math.pi / 2
         if blocked:
             self._give_way(direction, yaw, time)
+        elif self.phase == "raid_exit_yield" and (reached or elapsed >= 2.):
+            if not self.exit_retried and MATCH_SECONDS - time >= 5.:
+                self._raid_exit(time, self.exit_reason, retry=True)
+            else:
+                self.exit_reason = "raid_exit_blocked"
+                self.phase = "done"
         elif self.phase == "raid_yield" and (reached or elapsed >= 2.):
-            if not self._plan_raid(time, MATCH_SECONDS - time):
+            recovery = self._known_recovery_value(time)
+            if not self._plan_raid(time, MATCH_SECONDS - time, minimum=max(0., recovery)):
+                if recovery > 0. and self._plan_recovery(time, verified=True):
+                    return
                 self._end_raid(time, "raid_blocked")
-        elif self.phase not in ("raid_yield", "raid_exit") and (time >= self.raid_deadline or elapsed >= 13.):
+        elif self.phase not in ("raid_yield", "raid_exit", "raid_exit_yield") and (
+                time >= self.raid_deadline or elapsed >= 13.):
             if self.phase == "raid_push":
                 self._give_way(rotation[:, 0], yaw, time)
                 self.exit_reason = "raid_timeout"
@@ -578,35 +763,37 @@ class Policy:
                 if obstructed:
                     self._give_way(rotation[:, 0], yaw, time)
                     return
-                targets = self._raid_targets(frame, rotation)
+                targets = self._raid_targets(frame, obs["image_time_s"], rotation)
                 self.raid_target_seen |= bool(targets)
+                if targets:
+                    self.enemy_bank = time, targets
                 if (targets and self.frames >= 2 and not math.isfinite(self.traffic_gap) and
                         self.raid_deadline - time >= 7.):
-                    # Pick the lane that can sweep the most visible opponent disks.
-                    xs = np.array(targets)[:, 0]
-                    lane = max(xs, key=lambda x: (np.count_nonzero(abs(xs - x) < .125),
-                                                  -abs(x - self.pos[0])))
-                    lane = np.clip(lane, self.enemy_goal[0, 0] + .10, self.field[0] - .15)
-                    self._move_to("raid_align", (lane, self.pos[1]), heading, time)
-                    return
+                    raid = self._raid_choice(time, targets)
+                    home = self._known_recovery_value(time)
+                    if home > max(0., raid[0] if raid else 0.) and self._plan_recovery(time, verified=True):
+                        return
+                    if raid and raid[0] > 0.:
+                        self._move_to("raid_align", (raid[3], self.pos[1]), heading, time)
+                        return
             if self.frames >= 4 or elapsed >= 4.:
                 if (self.recovery_tried and self.frames >= 4 and not self.raid_target_seen and
                         not math.isfinite(self.traffic_gap) and MATCH_SECONDS - time < 29.):
-                    self.exit_reason = "raid_no_target"
-                    self._move_to("raid_exit", (self.enemy_goal[0, 0] - .29, self.pos[1]), heading, time)
+                    self._raid_exit(time, "raid_no_target")
                 elif not self._plan_raid(time, MATCH_SECONDS - time):
                     self._end_raid(time, "raid_no_target")
         elif self.phase == "raid_align" and reached:
             exit_y = self.enemy_goal[1 if self.raid_wing > 0 else 0, 1] + self.raid_wing * .09
+            self.raid_pushed_lane = self.pos[0]
             self._move_to("raid_push", (self.pos[0], exit_y), heading, time)
         elif self.phase == "raid_push" and (reached or elapsed >= 8.):
             # Clear the goal from the exit side, without pulling the disks back.
             if reached:
-                self._move_to("raid_exit", (self.enemy_goal[0, 0] - .29, self.pos[1]), heading, time)
+                self._raid_exit(time, "raid_complete")
             else:
                 self._give_way(rotation[:, 0], yaw, time)
                 self.exit_reason = "raid_timeout"
-        elif self.phase == "raid_exit" and (reached or elapsed >= 3.4):
+        elif self.phase == "raid_exit" and (reached or elapsed >= 6.):
             self._end_raid(time, self.exit_reason or "raid_complete")
 
     def act(self, obs):
@@ -625,6 +812,8 @@ class Policy:
             self.exit_reason = None
             if not first_tick:
                 self.failed_sweeps += 1
+                self.opponent = None
+                self.rank_stamp = None
             if first_tick:
                 self.sweep = 0
                 self.region = 0
@@ -658,6 +847,22 @@ class Policy:
         if (self.sweep >= 2 and self.phase in ("check", "deliver", "retreat") and
                 abs(wrap(math.pi - yaw)) < .13):
             self._correct_at_goal(obs, rotation)
+
+        if fresh and self.sweep >= 1:
+            landmarks = [p for p in self._plates(obs["rgb"]) if .17 < p[0] < .95]
+            if landmarks:
+                self._remember_opponent(min(landmarks, key=np.linalg.norm), rotation, time)
+            if (self.phase in ("deliver", "retreat") and abs(wrap(math.pi - yaw)) < .14 and
+                    .54 < self.pos[0] < 1.07):
+                own = self._valued_disks(obs["rgb"], time, rotation, own=True)
+                bank = [(p, v) for p, v in own if np.all(p > self.home_goal[0] + .032) and
+                        np.all(p < self.home_goal[1] - .032)]
+                if bank:
+                    self.home_bank = time, self._points(bank)
+                loose = [(p, v) for p, v in own if .06 < p[0] < self.goal_front - .02 and
+                         0. < abs(p[1] - self.goal_y) - np.ptp(self.home_goal[:, 1]) / 2 < .32]
+                if loose:
+                    self.home_loose = time, loose
 
         error = wrap(self.heading - yaw)
         guarded_return = self.sweep >= 2 and self.phase in ("deliver", "retreat")
@@ -781,7 +986,7 @@ class Policy:
         p = 2. * (self.target - self.pos)
         speed, yaw_limit = .23, 1.4
         if self.phase in ("look", "check", "raid_scan", "recover_scan", "recover_wait") or (
-                self.phase in ("enter", "reposition", "recover_flank", "recover_transit", "recover_stage")
+                self.phase in ("enter", "reposition", "recover_flank", "recover_transit", "recover_stage", "raid_exit")
                 and abs(error) > .40):
             p[:] = 0.
         elif self.phase == "deliver":
@@ -797,10 +1002,12 @@ class Policy:
             back = max(0., 2. * (self.target[0] - goal_distance))
             p = -back * np.array([math.cos(self.heading), math.sin(self.heading)])
             yaw_limit = .30
-        elif self.phase in ("yield", "raid_yield", "recover_yield"):
+        elif self.phase in ("yield", "raid_yield", "recover_yield", "raid_exit_yield"):
             speed, yaw_limit = .18, .30
-        elif self.phase in ("raid_push", "raid_exit"):
+        elif self.phase == "raid_push":
             speed, yaw_limit = .16, .30
+        elif self.phase == "raid_exit":
+            speed, yaw_limit = .19, 1.
         elif self.phase in ("recover_push", "recover_backout"):
             speed, yaw_limit = .14, .30
         elif self.phase == "recover_align":
