@@ -14,7 +14,8 @@ RETURN_SPEED = .17
 SWEEP_REGIONS = ((-1, .56, .13), (1, .27, -.13),
                  (1, .59, -.03), (-1, .28, .04))
 TRAFFIC_PHASES = ("outside", "reposition", "approach", "detour", "enter", "deliver")
-RAID_TRAVEL = ("raid_clear", "raid_lane", "raid_transit", "raid_align", "raid_push", "raid_exit")
+RAID_TRAVEL = ("raid_clear", "raid_lane", "raid_transit", "raid_align",
+               "raid_push", "raid_clearance", "raid_exit")
 RECOVER_TRAVEL = ("recover_flank", "recover_transit", "recover_stage", "recover_align", "recover_push")
 WATCHED_TRAVEL = TRAFFIC_PHASES + RAID_TRAVEL + RECOVER_TRAVEL
 
@@ -44,6 +45,7 @@ class Policy:
         self.failed_sweeps = 0
         self.last_delivery = 0.
         self.raid_entries = []
+        self.raid_denied = 0
         self.recovery_tried = False
         self.rank_model = None
         self.rank_stamp = None
@@ -355,7 +357,7 @@ class Policy:
     def _give_way(self, direction, yaw, time):
         # Reverse the approach before turning or picking a different region.
         if self.phase.startswith("raid_"):
-            if self.phase == "raid_exit":
+            if self.phase in ("raid_clearance", "raid_exit"):
                 phase = "raid_exit_yield"
             else:
                 self.exit_reason = "raid_blocked"
@@ -708,16 +710,20 @@ class Policy:
         else:
             flank = self.raid_wing
         line = goal[1 if flank > 0 else 0, 1]
-        target = np.array([goal[0, 0] - .60, line + flank * (.24 if retry else .09)])
+        clearance = .09
+        if self.phase == "raid_clearance":
+            # Leave along the deeper path so the exit does not crowd the scoring line.
+            clearance = max(clearance, flank * (self.pos[1] - line))
+        target = np.array([goal[0, 0] - .60, line + flank * (.24 if retry else clearance)])
         if retry and self.opponent is not None and time - self.opponent[0] <= 3.:
             _, p, v = self.opponent
             obstacle = p + .7 * v
             alternatives = (target, np.array([target[0], line - flank * .16]))
-            def clearance(point):
+            def separation(point):
                 step = point - self.pos
                 along = np.clip((obstacle - self.pos) @ step / max(.01, step @ step), 0., 1.)
                 return np.linalg.norm(obstacle - self.pos - along * step)
-            target = max(alternatives, key=clearance)
+            target = max(alternatives, key=separation)
         delta = target - self.pos
         self.exit_retried = retry
         # Clear the scoring mouth before stopping, with the camera facing the escape corridor.
@@ -741,7 +747,7 @@ class Policy:
                 if recovery > 0. and self._plan_recovery(time, verified=True):
                     return
                 self._end_raid(time, "raid_blocked")
-        elif self.phase not in ("raid_yield", "raid_exit", "raid_exit_yield") and (
+        elif self.phase not in ("raid_yield", "raid_clearance", "raid_exit", "raid_exit_yield") and (
                 time >= self.raid_deadline or elapsed >= 13.):
             if self.phase == "raid_push":
                 self._give_way(rotation[:, 0], yaw, time)
@@ -774,6 +780,7 @@ class Policy:
                     if home > max(0., raid[0] if raid else 0.) and self._plan_recovery(time, verified=True):
                         return
                     if raid and raid[0] > 0.:
+                        self.raid_denied = raid[1]
                         self._move_to("raid_align", (raid[3], self.pos[1]), heading, time)
                         return
             if self.frames >= 4 or elapsed >= 4.:
@@ -787,12 +794,20 @@ class Policy:
             self.raid_pushed_lane = self.pos[0]
             self._move_to("raid_push", (self.pos[0], exit_y), heading, time)
         elif self.phase == "raid_push" and (reached or elapsed >= 8.):
-            # Clear the goal from the exit side, without pulling the disks back.
-            if reached:
+            remaining = MATCH_SECONDS - time
+            if (reached and self.raid_denied >= 10 and 9. <= remaining <= 22. and
+                    not math.isfinite(self.traffic_gap)):
+                # A batch just outside the line is within one short recovery push.
+                self.exit_reason = "raid_complete"
+                self.exit_retried = False
+                self._move_to("raid_clearance", self.target + [0., self.raid_wing * 0.16], heading, time)
+            elif reached:
                 self._raid_exit(time, "raid_complete")
             else:
                 self._give_way(rotation[:, 0], yaw, time)
                 self.exit_reason = "raid_timeout"
+        elif self.phase == "raid_clearance" and (reached or elapsed >= 1.2):
+            self._raid_exit(time, "raid_complete")
         elif self.phase == "raid_exit" and (reached or elapsed >= 6.):
             self._end_raid(time, self.exit_reason or "raid_complete")
 
@@ -1004,7 +1019,7 @@ class Policy:
             yaw_limit = .30
         elif self.phase in ("yield", "raid_yield", "recover_yield", "raid_exit_yield"):
             speed, yaw_limit = .18, .30
-        elif self.phase == "raid_push":
+        elif self.phase in ("raid_push", "raid_clearance"):
             speed, yaw_limit = .16, .30
         elif self.phase == "raid_exit":
             speed, yaw_limit = .19, 1.
