@@ -47,6 +47,7 @@ class Policy:
         self.last_delivery = 0.
         self.raid_entries = []
         self.raid_denied = 0
+        self.raid_followup = False
         self.opening_lane_step = 0.
         self.recovery_tried = False
         self.rank_model = None
@@ -744,6 +745,26 @@ class Policy:
             if abs(line - offset - self.pos[1]) < .38:
                 self.pos[1] = line - offset
 
+    def _raid_rescan_step(self, obs, rotation, aligned):
+        time = obs["time_s"]
+        frame = self._fresh_frame(obs, aligned)
+        if frame is not None:
+            # A car at the mouth can reach the next sweep before we do.
+            for plate in self._plates(frame):
+                if np.linalg.norm(plate) < 1.08 and (
+                        self.pos + rotation @ plate)[0] > self.enemy_goal[0, 0] - .24:
+                    self.exit_reason = "raid_followup_occupied"
+                    self.phase = "done"
+                    return
+            targets = self._raid_targets(frame, obs["image_time_s"], rotation)
+            if any(value is not None and value >= 5 for _, value in targets):
+                self.enemy_bank = time, targets
+                if self._plan_raid(time, MATCH_SECONDS - time - 2., minimum=0.):
+                    return
+        if self.frames >= 3 or time - self.since >= 4.1:
+            self.exit_reason = "raid_followup_no_target"
+            self.phase = "done"
+
     def _end_raid(self, time, reason):
         self.exit_reason = reason
         self.failed_sweeps = 0
@@ -755,7 +776,13 @@ class Policy:
         home_budget = max(0., self.pos[0] - self.goal_front) / APPROACH_SPEED
         home_budget += self._return_seconds(self.center_x + .18) + 5.5
         if reason in ("raid_complete", "raid_no_target") and MATCH_SECONDS - time < home_budget:
-            self.phase = "done"
+            if (reason == "raid_complete" and not self.raid_followup and len(self.raid_entries) == 1 and
+                    MATCH_SECONDS - time >= 18. and self.pos[0] <= self.enemy_goal[0, 0] - .40):
+                self.raid_followup = True
+                delta = self.enemy_goal.mean(axis=0) - self.pos
+                self._observe("raid_rescan", math.atan2(delta[1], delta[0]), time)
+            else:
+                self.phase = "done"
             return
         self._plan_sweep(time)
 
@@ -792,6 +819,8 @@ class Policy:
         heading = self.raid_wing * math.pi / 2
         if blocked:
             self._give_way(direction, yaw, time)
+        elif self.phase == "raid_rescan":
+            self._raid_rescan_step(obs, rotation, aligned)
         elif self.phase == "raid_exit_yield" and (reached or elapsed >= 2.):
             if not self.exit_retried and MATCH_SECONDS - time >= 5.:
                 self._raid_exit(time, self.exit_reason, retry=True)
@@ -836,7 +865,9 @@ class Policy:
                     home = self._known_recovery_value(time)
                     if home > max(0., raid[0] if raid else 0.) and self._plan_recovery(time, verified=True):
                         return
-                    if raid and raid[0] > 0.:
+                    if (raid and raid[0] > 0. and (not self.raid_followup or any(
+                            v is not None and v >= 5 and abs(p[0] - raid[3]) < .125
+                            for p, v in targets))):
                         self.raid_denied = raid[1]
                         self._move_to("raid_align", (raid[3], self.pos[1]), heading, time)
                         return
@@ -1070,7 +1101,7 @@ class Policy:
         error = wrap(self.heading - yaw)
         p = 2. * (self.target - self.pos)
         speed, yaw_limit = .23, 1.4
-        if self.phase in ("look", "check", "raid_scan", "recover_scan", "recover_wait") or (
+        if self.phase in ("look", "check", "raid_scan", "raid_rescan", "recover_scan", "recover_wait") or (
                 self.phase in ("enter", "reposition", "recover_flank", "recover_transit", "recover_stage", "raid_exit")
                 and abs(error) > .40):
             p[:] = 0.
