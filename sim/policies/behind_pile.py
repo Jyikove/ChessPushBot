@@ -584,6 +584,16 @@ class Policy:
         return [(p, value) for p, value in self._valued_disks(rgb, stamp, rotation, own=False)
                 if np.all(p > self.enemy_goal[0] + .025) and np.all(p < self.enemy_goal[1] - .025)]
 
+    def _raid_carries_valuable_disk(self, obs, rotation, aligned):
+        stamp = obs["image_time_s"]
+        if (aligned and obs["rgb"] is not None and stamp is not None and
+                obs["time_s"] - stamp <= .11 and np.linalg.norm(self.target - self.pos) <= .17):
+            for point, value in self._valued_disks(obs["rgb"], stamp, rotation, own=False):
+                front, lateral = rotation.T @ (point - self.pos)
+                if value is not None and value >= 5 and .19 < front < .39 and abs(lateral) < .13:
+                    return True
+        return False
+
     def _raid_choice(self, time, targets):
         elapsed = MATCH_SECONDS - time
         if not targets:
@@ -840,20 +850,28 @@ class Policy:
             exit_y = self.enemy_goal[1 if self.raid_wing > 0 else 0, 1] + self.raid_wing * .09
             self.raid_pushed_lane = self.pos[0]
             self._move_to("raid_push", (self.pos[0], exit_y), heading, time)
-        elif self.phase == "raid_push" and (reached or elapsed >= 8.):
+        elif self.phase == "raid_push":
             remaining = MATCH_SECONDS - time
-            if (reached and self.raid_denied >= 10 and 9. <= remaining <= 22. and
-                    not math.isfinite(self.traffic_gap)):
-                # A batch just outside the line is within one short recovery push.
+            can_clear = 9. <= remaining <= 22. and not math.isfinite(self.traffic_gap)
+            diagonal = (can_clear and remaining >= 11. and self.raid_denied < 10 and
+                        self._raid_carries_valuable_disk(obs, rotation, aligned))
+            if reached and can_clear and (self.raid_denied >= 10 or diagonal):
                 self.exit_reason = "raid_complete"
                 self.exit_retried = False
-                self._move_to("raid_clearance", self.target + [0., self.raid_wing * 0.16], heading, time)
+                if diagonal:
+                    # Move the visible disk away from the goal mouth as well as past its side line.
+                    self.raid_clearance_limit = 2.8
+                    self._move_to("raid_clearance", self.pos + [-.19, self.raid_wing * .30],
+                                  heading + self.raid_wing * .45, time)
+                else:
+                    self.raid_clearance_limit = 1.2
+                    self._move_to("raid_clearance", self.target + [0., self.raid_wing * .16], heading, time)
             elif reached:
                 self._raid_exit(time, "raid_complete")
-            else:
+            elif elapsed >= 8.:
                 self._give_way(rotation[:, 0], yaw, time)
                 self.exit_reason = "raid_timeout"
-        elif self.phase == "raid_clearance" and (reached or elapsed >= 1.2):
+        elif self.phase == "raid_clearance" and (reached or elapsed >= self.raid_clearance_limit):
             self._raid_exit(time, "raid_complete")
         elif self.phase == "raid_exit" and (reached or elapsed >= 6.):
             self._end_raid(time, self.exit_reason or "raid_complete")
