@@ -47,6 +47,7 @@ class Policy:
         self.last_delivery = 0.
         self.raid_entries = []
         self.raid_denied = 0
+        self.raid_push_offset = 0.
         self.raid_followup = False
         self.opening_lane_step = 0.
         self.recovery_tried = False
@@ -614,6 +615,34 @@ class Policy:
             options.append((utility, denied, -path, lane))
         return max(options) if options else None
 
+    def _raid_direction(self, remaining, lane, targets):
+        goal = self.enemy_goal
+        goal_center_x = goal[:, 0].mean()
+        # Larger batches already have a straight sweep and clearance route.
+        if (len(self.raid_entries) != 1 or self.raid_denied >= 10 or
+                lane < goal_center_x + .02 or remaining < 16. or
+                not any(value is not None and value >= 3 for _, value in targets)):
+            return 0.
+        end_y = goal[1 if self.raid_wing > 0 else 0, 1] + self.raid_wing * .09
+        delta_y = end_y - self.pos[1]
+        if abs(delta_y) < .50:
+            return 0.
+
+        def expected_denial(offset):
+            total = 0.
+            for (x, y), value in targets:
+                progress = np.clip((y - self.pos[1]) / delta_y, 0., 1.)
+                miss = abs(x - (lane - offset * progress))
+                capture = np.clip((.175 - miss) / .085, 0., 1.)
+                finish_x = x - .85 * offset * (1. - progress)
+                # A disk displaced toward midfield is harder to return with a side sweep.
+                retention = .55 + .35 * np.clip((goal_center_x - finish_x) / .20, 0., 1.)
+                total += (value or 1) * capture * retention
+            return total
+
+        offset = .14
+        return offset if expected_denial(offset) > expected_denial(0.) + .20 else 0.
+
     def _plan_recovery(self, time, verified=False):
         if self.recovery_tried or time < 53. or (not verified and not self.failed_sweeps and self.pos[0] > .85):
             return False
@@ -819,6 +848,12 @@ class Policy:
         heading = self.raid_wing * math.pi / 2
         if blocked:
             self._give_way(direction, yaw, time)
+        elif self.phase == "raid_backout":
+            if reached:
+                self._end_raid(time, "raid_complete")
+            elif self._no_progress(obs, yaw) or elapsed >= 5.2:
+                self.exit_reason = "raid_backout_incomplete"
+                self.phase = "done"
         elif self.phase == "raid_rescan":
             self._raid_rescan_step(obs, rotation, aligned)
         elif self.phase == "raid_exit_yield" and (reached or elapsed >= 2.):
@@ -869,6 +904,7 @@ class Policy:
                             v is not None and v >= 5 and abs(p[0] - raid[3]) < .125
                             for p, v in targets))):
                         self.raid_denied = raid[1]
+                        self.raid_push_offset = self._raid_direction(MATCH_SECONDS - time, raid[3], targets)
                         self._move_to("raid_align", (raid[3], self.pos[1]), heading, time)
                         return
             if self.frames >= 4 or elapsed >= 4.:
@@ -880,8 +916,16 @@ class Policy:
         elif self.phase == "raid_align" and reached:
             exit_y = self.enemy_goal[1 if self.raid_wing > 0 else 0, 1] + self.raid_wing * .09
             self.raid_pushed_lane = self.pos[0]
-            self._move_to("raid_push", (self.pos[0], exit_y), heading, time)
+            end = (self.pos[0] - self.raid_push_offset, exit_y)
+            delta = end - self.pos
+            push_heading = math.atan2(delta[1], delta[0])
+            self._move_to("raid_push", end, push_heading, time)
         elif self.phase == "raid_push":
+            if reached and self.raid_push_offset > 0.:
+                # Retrace the swept strip instead of crossing the receiving flank.
+                forward = np.array([math.cos(self.heading), math.sin(self.heading)])
+                self._move_to("raid_backout", self.pos - .80 * forward, self.heading, time)
+                return
             remaining = MATCH_SECONDS - time
             can_clear = 9. <= remaining <= 22. and not math.isfinite(self.traffic_gap)
             diagonal = (can_clear and remaining >= 11. and self.raid_denied < 10 and
@@ -1122,6 +1166,8 @@ class Policy:
             speed, yaw_limit = .18, .30
         elif self.phase in ("raid_push", "raid_clearance"):
             speed, yaw_limit = .16, .30
+        elif self.phase == "raid_backout":
+            speed, yaw_limit = .18, .30
         elif self.phase == "raid_exit":
             speed, yaw_limit = .19, 1.
         elif self.phase in ("recover_push", "recover_backout"):
