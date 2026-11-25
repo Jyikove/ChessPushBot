@@ -1186,7 +1186,6 @@ class Policy:
     def _raid_step(self, obs, rotation, reached, aligned, blocked, direction, yaw):
         time = obs["time_s"]
         elapsed = time - self.since
-        heading = self.raid_wing * math.pi / 2
         if blocked:
             self._give_way(direction, yaw, time)
         elif self.phase == "raid_survey":
@@ -1255,8 +1254,9 @@ class Policy:
             self._move_to("raid_transit", self.raid_scout, 0., time)
         elif self.phase == "raid_transit" and (reached or self.pos[0] >= self.raid_scout[0] + .03):
             self.raid_target_seen = False
-            self._observe("raid_scan", heading, time)
+            self._observe("raid_scan", self.raid_wing * math.pi / 2, time)
         elif self.phase == "raid_scan":
+            heading = self.raid_wing * math.pi / 2
             if self.raid_coverage is not None:
                 self._coverage_scan(obs, rotation, aligned)
                 return
@@ -1312,6 +1312,7 @@ class Policy:
                 push_heading -= self.raid_wing * .11
             self._move_to("raid_push", end, push_heading, time)
         elif self.phase == "raid_push":
+            heading = self.raid_wing * math.pi / 2
             if (self.raid_coverage is not None and obs["rgb"] is not None and obs["image_time_s"] == time and
                     self._coverage_blocked(obs["rgb"], rotation, time)):
                 self._give_way(direction, yaw, time)
