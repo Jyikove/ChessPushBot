@@ -18,7 +18,7 @@ TRAFFIC_PHASES = ("outside", "reposition", "approach", "detour", "enter", "deliv
 RAID_TRAVEL = ("raid_clear", "raid_lane", "raid_transit", "raid_align",
                "raid_push", "raid_clearance", "raid_exit", "raid_rescan_shift")
 RECOVER_TRAVEL = ("recover_flank", "recover_transit", "recover_stage", "recover_align", "recover_push")
-WATCHED_TRAVEL = TRAFFIC_PHASES + RAID_TRAVEL + RECOVER_TRAVEL
+WATCHED_TRAVEL = TRAFFIC_PHASES + RAID_TRAVEL + RECOVER_TRAVEL + ("late_return",)
 
 
 class Policy:
@@ -64,6 +64,8 @@ class Policy:
         self.home_bank = (0., 0.)
         self.home_loose = (0., [])
         self.enemy_bank = (0., [])
+        self.late_views = set()
+        self.delivery_retry = None
 
     def _local(self, xy):
         xy = np.asarray(xy, dtype=float)
@@ -78,10 +80,11 @@ class Policy:
         self.traffic_gap = math.inf
         self.traffic_hits = 0
         self.motion_frame = None
-        self.motion_quiet = 0.
+        self.motion_stamp = None
         self.raid_edge_samples = []
         self.raid_line_progress = -math.inf
         self.drive_command = (0., 0.)
+        self.settled_at = None
 
     def _approach(self, time):
         self.deep = False
@@ -335,41 +338,43 @@ class Policy:
         stamp = obs["image_time_s"]
         if obs["rgb"] is None or stamp is None or obs["time_s"] - stamp > .23:
             self.motion_frame = None
-            self.motion_quiet = 0.
             self.raid_edge_samples.clear()
             self.raid_line_progress = -math.inf
             return False
+        if stamp == self.motion_stamp:
+            return False
+        drive, turn = self.drive_command
         previous = self.motion_frame
-        if previous is not None and stamp == previous[0]:
+        gap = math.inf if self.motion_stamp is None else stamp - self.motion_stamp
+        self.motion_stamp = stamp
+        if drive < .075 and turn < .35:
+            self.motion_frame = None
             return False
         rgb = cv2.resize(obs["rgb"], (160, 120), interpolation=cv2.INTER_AREA)
         gray = np.ascontiguousarray(cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)[35:114, 8:152])
-        self.motion_frame = stamp, yaw, gray
-        if previous is None or stamp - previous[0] > .32:
-            self.motion_quiet = 0.
+        if previous is None or gap > .32 or abs(wrap(yaw - previous[1])) >= .027:
+            self.motion_frame = stamp, yaw, gray
             return False
-        drive, turn = self.drive_command
-        yaw_changed = abs(wrap(yaw - previous[1])) >= .018
-        quiet = turn >= .42 and drive < .07 and not yaw_changed
-        if drive >= .10 and not yaw_changed:
-            mask = None
-            if self.phase in ("deliver", "raid_push", "recover_push"):
-                # Disks already carried with the car are poor motion landmarks.
-                mask = np.full(previous[2].shape, 255, dtype=np.uint8)
-                mask[38:, 24:-24] = 0
-            corners = cv2.goodFeaturesToTrack(previous[2], 32, .025, 6, mask=mask)
-            if corners is not None and len(corners) >= 6:
-                tracked, status, _ = cv2.calcOpticalFlowPyrLK(previous[2], gray, corners, None)
-                if tracked is not None and status is not None:
-                    valid = status.ravel() == 1
-                    if valid.sum() >= 6:
-                        motion = np.linalg.norm((tracked - corners).reshape(-1, 2)[valid], axis=1)
-                        quiet = float(np.quantile(motion, .75)) < .60
-        self.motion_quiet = self.motion_quiet + stamp - previous[0] if quiet else 0.
+        # Compare to the start of the still interval. Small inter-frame
+        # displacement on a moving car must accumulate rather than look quiet.
+        mask = np.full(previous[2].shape, 255, dtype=np.uint8)
+        mask[36:, 24:-24] = 0
+        corners = cv2.goodFeaturesToTrack(previous[2], 40, .008, 5, mask=mask)
+        quiet = drive < .075 and turn >= .35
+        if not quiet and corners is not None and len(corners) >= 8:
+            tracked, status, _ = cv2.calcOpticalFlowPyrLK(previous[2], gray, corners, None)
+            if tracked is not None and status is not None:
+                valid = status.ravel() == 1
+                if valid.sum() >= max(8, len(corners) * .60):
+                    motion = np.linalg.norm((tracked - corners).reshape(-1, 2)[valid], axis=1)
+                    quiet = float(np.quantile(motion, .75)) < .38
+        if not quiet:
+            self.motion_frame = stamp, yaw, gray
         if self.phase == "raid_push" and MATCH_SECONDS - stamp <= 20.:
             if self._raid_line_advancing(obs["rgb"], stamp, yaw, quiet):
                 return False
-        return self.motion_quiet >= 1.2 - 1e-6
+        # Leave room for the motor response after commanding disengagement.
+        return quiet and stamp - previous[0] >= 1.19
 
     def _give_way(self, direction, yaw, time):
         # Reverse the approach before turning or picking a different region.
@@ -383,6 +388,9 @@ class Policy:
             else:
                 self.exit_reason = "raid_blocked"
                 phase = "raid_yield"
+        elif self.phase == "late_return":
+            self.exit_reason = "late_return_blocked"
+            phase = "late_yield"
         elif self.phase.startswith("recover_"):
             self.exit_reason = "recovery_blocked"
             self.recover_resume = self.phase == "recover_transit" and not self.recover_retried
@@ -415,12 +423,18 @@ class Policy:
 
     def _fresh_frame(self, obs, aligned):
         stamp = obs["image_time_s"]
-        if (aligned and abs(obs["gyro_z_rad_s"]) < .45 and obs["rgb"] is not None and
+        settled = aligned and abs(obs["gyro_z_rad_s"]) < .45
+        if settled and self.settled_at is None:
+            self.settled_at = obs["time_s"]
+        if (settled and obs["rgb"] is not None and
                 stamp is not None and self.since <= stamp and obs["time_s"] - stamp <= .11
                 and stamp != self.last_frame):
             self.last_frame = stamp
             self.frames += 1
             return obs["rgb"]
+
+    def _view_timeout(self, time):
+        return self.settled_at is not None and time - self.settled_at >= 1.1
 
     def _leave_entry(self, yaw, time, retry):
         # Clear the pile laterally before turning back out to the travel lane.
@@ -460,6 +474,7 @@ class Policy:
         self._move_to("retreat", (clear_x, self.pos[1]), heading, time)
 
     def _next_sweep(self, time):
+        self.delivery_retry = None
         self.sweep += 1
         if self.sweep == 1 and MATCH_SECONDS - time >= 24.:
             self._move_to("outside", (self.goal_x + .57, self.center_y - .44), 0., time)
@@ -477,11 +492,13 @@ class Policy:
     def _return_seconds(self, x):
         return max(0., x - self.goal_x) / RETURN_SPEED + 1.5
 
-    def _plan_sweep(self, time):
+    def _plan_sweep(self, time, confirmed_raid=False):
         wing, depth, lane = SWEEP_REGIONS[self.region]
         self.region = (self.region + 1) % len(SWEEP_REGIONS)
         staging_x = self.goal_x + .57
         available = MATCH_SECONDS - time
+        seen, offers = self.enemy_bank
+        can_raid = not confirmed_raid or (time - seen <= 12. and bool(offers))
         near_wing = self.wing
         candidates = ((wing, self.center_x + depth, lane),
                       (wing, self.center_x - .40, lane),
@@ -513,7 +530,7 @@ class Policy:
                 threat = self._home_exposure(time, budget) * .35
                 own = self._utility(time, budget, own=gain, loss=threat, risk=.15)
                 if self.sweep >= 3 and (self.failed_sweeps or self.recovery_tried):
-                    if self._plan_raid(time, max_cost=available, minimum=max(0., own)):
+                    if can_raid and self._plan_raid(time, max_cost=available, minimum=max(0., own)):
                         return
                     if own <= 0.:
                         break
@@ -529,7 +546,8 @@ class Policy:
                 else:
                     self._move_to("reposition", reposition, math.pi, time)
                 return
-        if (self.failed_sweeps or self.recovery_tried) and self._plan_raid(time, max_cost=available, minimum=0.):
+        if (can_raid and (self.failed_sweeps or self.recovery_tried) and
+                self._plan_raid(time, max_cost=available, minimum=0.)):
             return
         self.phase = "done"
 
@@ -545,6 +563,11 @@ class Policy:
             # Switch wings outside the mouth of the goal.
             clear = self.pos[0] > clear_x and abs(self.pos[1] - side_y) > .20
             lane_x = min(self.pos[0], clear_x) if clear else self.pos[0]
+            turn = np.array([lane_x, side_y])
+            scout = np.array([scout_x, side_y])
+            if min(self._recent_opponent_gap(time, turn),
+                   self._recent_opponent_gap(time, scout, origin=turn)) < .46:
+                continue
             travel = abs(self.pos[0] - lane_x) + abs(self.pos[1] - side_y) + abs(scout_x - lane_x)
             cost = travel / APPROACH_SPEED + (np.ptp(goal[:, 1]) + .37) / .16 + 3.5
             if cost > max_cost:
@@ -899,7 +922,7 @@ class Policy:
             if occupied:
                 # Briefly keep the defender and the scoring area in view.
                 # A departing car can uncover a useful target in the next frames.
-                if self.frames < 3 and time - self.since < 4.1 and MATCH_SECONDS - time >= 13.:
+                if self.frames < 3 and not self._view_timeout(time) and MATCH_SECONDS - time >= 13.:
                     return
                 self._finish_rescan(time, "raid_followup_occupied")
                 return
@@ -910,8 +933,37 @@ class Policy:
                 self.enemy_bank = time, targets
                 if self._plan_raid(time, MATCH_SECONDS - time - 2., minimum=0.):
                     return
-        if self.frames >= 3 or time - self.since >= 4.1:
+        if self.frames >= 3 or self._view_timeout(time) or time - self.since >= 3.3:
             self._finish_rescan(time, "raid_followup_no_target")
+
+    def _late_return(self, time):
+        # Leave the enemy mouth once. Reposition to the home approach to
+        # observe a recovery or a returning defender without crossing our bank.
+        home_x = self.goal_front + .40
+        flank = 1 if self.pos[1] >= self.goal_y else -1
+        views = [(("home", flank), [home_x, self.goal_y + flank * .40], math.pi),
+                 (("home", 0), [home_x - .04, self.goal_y], math.pi),
+                 (("home", -flank), [home_x, self.goal_y - flank * .40], math.pi),
+                 (("return_lane", flank), [self.center_x - .13, self.goal_y + flank * .48], 0.),
+                 (("return_lane", -flank), [self.center_x - .13, self.goal_y - flank * .48], 0.)]
+        if self.pos[0] > self.enemy_goal[0, 0] - .20:
+            views.insert(0, (("mouth_exit", 0), [self.enemy_goal[0, 0] - .49, self.pos[1]], self.heading))
+        for name, point, heading in views:
+            step = point - self.pos
+            distance = np.linalg.norm(step)
+            if name in self.late_views or distance < .25:
+                continue
+            if self._recent_opponent_gap(time, point) < .45:
+                # If already close to a car, allow a route that opens the gap
+                # from the first part of the departure.
+                initial_gap = self._recent_opponent_gap(time, self.pos)
+                origin = self.pos + step * (.22 / distance)
+                if self._recent_opponent_gap(time, point, origin=origin) < max(.42, initial_gap + .13):
+                    continue
+            self.late_views.add(name)
+            self._move_to("late_return", point, heading, time)
+            return True
+        return False
 
     def _recheck_raid_entry(self, time, heading):
         exit_y = self.enemy_goal[1 if self.raid_wing > 0 else 0, 1] + self.raid_wing * .09
@@ -941,7 +993,7 @@ class Policy:
                     np.linalg.norm(point - self.raid_short_target) <= .11 for point, _ in nearby)):
                 self._move_to("raid_align", self.pos, self.heading, time)
                 return
-        if self.frames >= 3 or time - self.since >= 3.3:
+        if self.frames >= 3 or self._view_timeout(time) or time - self.since >= 3.3:
             reason = "raid_short_blocked" if math.isfinite(self.traffic_gap) else "raid_short_unconfirmed"
             self._raid_exit(time, reason)
 
@@ -951,6 +1003,10 @@ class Policy:
         if reason == "raid_complete":
             seen, pieces = self.enemy_bank
             self.enemy_bank = seen, [(p, v) for p, v in pieces if abs(p[0] - self.raid_pushed_lane) > .15]
+        elif reason in ("raid_no_target", "raid_blocked"):
+            self.enemy_bank = time, []
+        if self._known_recovery_value(time) > 0. and self._plan_recovery(time, verified=True):
+            return
         # After a sweep, an unobserved short pickup at home is not worth
         # crossing the field again unless there is time for a full collection.
         home_budget = max(0., self.pos[0] - self.goal_front) / APPROACH_SPEED
@@ -966,7 +1022,7 @@ class Policy:
             else:
                 self.phase = "done"
             return
-        self._plan_sweep(time)
+        self._plan_sweep(time, confirmed_raid=True)
 
     def _raid_exit(self, time, reason, retry=False):
         self.exit_reason = reason
@@ -1092,7 +1148,7 @@ class Policy:
                         self.raid_push_offset = self._raid_direction(MATCH_SECONDS - time, raid[3], targets)
                         self._move_to("raid_align", (raid[3], self.pos[1]), heading, time)
                         return
-            if self.frames >= 4 or elapsed >= (1.7 if self.raid_entry_rechecked else 4.):
+            if self.frames >= 4 or self._view_timeout(time) or elapsed >= (1.7 if self.raid_entry_rechecked else 4.):
                 if not math.isfinite(self.traffic_gap) and self._recheck_raid_entry(time, heading):
                     return
                 if (self.recovery_tried and self.frames >= 4 and not self.raid_target_seen and
@@ -1196,7 +1252,7 @@ class Policy:
             landmarks = [p for p in self._plates(obs["rgb"]) if .17 < p[0] < .95]
             if landmarks:
                 self._remember_opponent(min(landmarks, key=np.linalg.norm), rotation, time)
-            if (self.phase in ("deliver", "retreat") and abs(wrap(math.pi - yaw)) < .14 and
+            if (self.phase in ("deliver", "retreat", "late_return") and abs(wrap(math.pi - yaw)) < .14 and
                     .54 < self.pos[0] < 1.07):
                 own = self._valued_disks(obs["rgb"], time, rotation, own=True)
                 bank = [(p, v) for p, v in own if np.all(p > self.home_goal[0] + .032) and
@@ -1248,8 +1304,14 @@ class Policy:
             gap, blocked = self._traffic_ahead(obs, rotation.T @ traffic_direction)
         if remaining <= 0.:
             self.phase = "done"
-        elif watched and not blocked and self._no_progress(obs, yaw):
-            self._give_way(traffic_direction, yaw, time)
+        elif not blocked and (self.phase in WATCHED_TRAVEL or self.phase in (
+                "look", "retreat", "raid_scan", "raid_rescan", "recover_scan")) and (
+                self._no_progress(obs, yaw)):
+            if self.phase == "deliver" and self.delivery_retry is None:
+                self.delivery_retry = self.target.copy(), self.heading, self.since
+                self._move_to("delivery_unstick", self.pos + [.20, 0.], yaw, time)
+            else:
+                self._give_way(traffic_direction, yaw, time)
             self.exit_reason = "visual_stall"
         elif self.phase.startswith("raid_"):
             self._raid_step(obs, rotation, reached, aligned, blocked, traffic_direction, yaw)
@@ -1257,6 +1319,18 @@ class Policy:
             self._recovery_step(obs, rotation, reached, aligned, blocked, traffic_direction, yaw)
         elif blocked:
             self._give_way(traffic_direction, yaw, time)
+        elif self.phase == "delivery_unstick" and (reached or elapsed >= 1.4):
+            target, heading, since = self.delivery_retry
+            self._move_to("deliver", target, heading, time)
+            self.since = since
+            self.exit_reason = None
+        elif self.phase == "late_return":
+            if self._known_recovery_value(time) > 0. and self._plan_recovery(time, verified=True):
+                pass
+            elif reached or elapsed >= 12.:
+                self.phase = "done"
+        elif self.phase == "late_yield" and (reached or elapsed >= 1.4):
+            self.phase = "done"
         elif self.phase == "yield" and (reached or elapsed >= 2.):
             self._next_sweep(time)
         elif (self.phase in ("outside", "reposition", "approach", "detour", "look") and
@@ -1276,7 +1350,7 @@ class Policy:
                     self._detour(time)
                 else:
                     self._leave_entry(yaw, time, retry=False)
-            elif aligned and (self.frames >= 3 or elapsed >= 2.8):
+            elif aligned and (self.frames >= 3 or self._view_timeout(time) or elapsed >= 2.8):
                 if self.sweep == 0:
                     self.entry[1] = min(self.goal_lane[1], self.entry[1] + self.opening_lane_step)
                 self._move_to("enter", self.entry, math.pi, time)
@@ -1328,7 +1402,7 @@ class Policy:
         elif self.phase in ("approach", "detour", "outside", "reposition") and elapsed >= 12.:
             self.failed_sweeps += 1
             self._next_sweep(time)
-        if self.phase == "done":
+        if self.phase == "done" and (remaining <= 0. or not self._late_return(time)):
             return {"motor_pwm": [0, 0, 0, 0]}
 
         error = wrap(self.heading - yaw)
@@ -1351,7 +1425,8 @@ class Policy:
             back = max(0., 2. * (self.target[0] - goal_distance))
             p = -back * np.array([math.cos(self.heading), math.sin(self.heading)])
             yaw_limit = .30
-        elif self.phase in ("yield", "raid_yield", "recover_yield", "raid_exit_yield"):
+        elif self.phase in ("yield", "raid_yield", "recover_yield", "raid_exit_yield",
+                            "late_yield", "delivery_unstick"):
             speed, yaw_limit = .18, .30
         elif self.phase in ("raid_push", "raid_clearance"):
             speed, yaw_limit = .16, .30
