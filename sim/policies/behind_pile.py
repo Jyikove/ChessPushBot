@@ -111,6 +111,8 @@ class Policy:
         self.last_frame = None
         self.frames = 0
         self.blocked_frames = 0
+        if phase == "raid_scan":
+            self.raid_previous_targets = []
         self._move_to(phase, self.pos, heading, time)
 
     def _floor_point(self, x, y, z=0.):
@@ -651,15 +653,28 @@ class Policy:
             return None
         end = self.enemy_goal[1 if self.raid_wing > 0 else 0, 1] + .09 * self.raid_wing
         wing_risk = self._entry_risk(time, self.raid_wing, self.pos[1])
+        front = self.enemy_goal[0, 0] + .10
+        rear = self.field[0] - .15
+        # Score whole blade passes at several depths, including between disks.
+        lanes = [front, (front + rear) / 2, rear]
+        lanes.extend(float(np.clip(p[0], front, rear)) for p, _ in targets)
         options = []
-        for p, _ in targets:
-            lane = float(np.clip(p[0], self.enemy_goal[0, 0] + .10, self.field[0] - .15))
+        for lane in lanes:
+            swept = [(q, v) for q, v in targets if abs(q[0] - lane) < .125]
+            if not swept:
+                continue
+            turn = (lane, self.pos[1])
+            if min(self._recent_opponent_gap(time, turn),
+                   self._recent_opponent_gap(time, (lane, end), origin=np.asarray(turn))) < .52:
+                continue
             path = abs(lane - self.pos[0]) / .15 + abs(end - self.pos[1]) / .16 + 1.
             if path > elapsed:
                 continue
-            swept = [(q, v) for q, v in targets if abs(q[0] - lane) < .125]
             denied = self._points(swept)
-            utility = self._utility(time, path, deny=denied,
+            # The center of the plate carries more reliably than its tips.
+            weighted = sum(self._points([(q, v)]) * (1. - .45 * abs(q[0] - lane) / .125)
+                           for q, v in swept)
+            utility = self._utility(time, path, deny=weighted,
                                     loss=self._home_exposure(time, path), risk=wing_risk)
             options.append((utility, denied, -path, lane))
         return max(options) if options else None
@@ -822,6 +837,24 @@ class Policy:
             line = self.enemy_goal[0 if self.raid_wing > 0 else 1, 1]
             if abs(line - offset - self.pos[1]) < .38:
                 self.pos[1] = line - offset
+
+    def _anchor_raid_wall(self, rgb, rotation):
+        # At the flank the end wall is mainly to the side of the camera.
+        # Vote on its projected X across image rows before correcting odometry.
+        rows = np.arange(158, 323, 4)
+        pixels = rgb[rows].astype(np.int16)
+        red, green, blue = pixels.transpose(2, 0, 1)
+        wall = (green >= red - 5) & (green > blue + 12) & (green > 95)
+        edge = np.zeros(rgb.shape[:2], dtype=bool)
+        edge[rows, 3:-3] = wall[:, :-6] != wall[:, 6:]
+        points = self._edge_points(edge, rotation)
+        correction = self.field[0] - self.pos[0] - points[:, 0]
+        bins = np.arange(-.115, .126, .012)
+        counts, _ = np.histogram(correction, bins)
+        best = int(np.argmax(counts))
+        support = (correction >= bins[best] - .006) & (correction <= bins[best + 1] + .006)
+        if support.sum() >= 12 and np.ptp(points[support, 1]) > .12:
+            self.pos[0] += np.clip(.8 * np.median(correction[support]), -.035, .035)
 
     def _short_raid_choice(self, time, targets):
         goal = self.enemy_goal
@@ -1165,14 +1198,21 @@ class Policy:
                 if (wall or targets) and self._rail_guard(frame):
                     self._give_way(rotation[:, 0], yaw, time)
                     return
-                self.raid_target_seen |= bool(targets)
                 observed = [offer for offer in targets if offer[0][0] <= self.field[0] - .135] + wall
+                self.raid_target_seen |= bool(observed)
                 if observed:
                     self.enemy_bank = time, observed
-                if (observed and self.frames >= 2 and not math.isfinite(self.traffic_gap) and
+                def seen_twice(offer):
+                    return any(np.linalg.norm(offer[0] - prior) < .10 for prior in self.raid_previous_targets)
+
+                confirmed_wall = [offer for offer in wall if seen_twice(offer)]
+                confirmed_interior = [offer for offer in targets if seen_twice(offer)]
+                self.raid_previous_targets = [point for point, _ in observed]
+                if ((confirmed_wall or confirmed_interior) and self.frames >= 2 and
+                        not math.isfinite(self.traffic_gap) and
                         (self.raid_entry_rechecked or self.raid_deadline - time >= 7.)):
-                    raid = self._raid_choice(time, targets)
-                    rail = self._rail_choice(time, wall, heading)
+                    raid = self._raid_choice(time, confirmed_interior)
+                    rail = self._rail_choice(time, confirmed_wall, heading)
                     home = self._known_recovery_value(time)
                     if home > max(0., raid[0] if raid else 0., rail[0] if rail else 0.) and (
                             self._plan_recovery(time, verified=True)):
@@ -1180,7 +1220,7 @@ class Policy:
                     if rail and (not raid or rail[0] >= raid[0] * .83):
                         self.raid_rail = True
                         self.raid_push_offset = 0.
-                        self.raid_denied = self._points(wall)
+                        self.raid_denied = self._points(confirmed_wall)
                         _, lane, rail_heading = rail
                         self._move_to("raid_align", (lane, self.pos[1]), rail_heading, time)
                         return
@@ -1188,9 +1228,10 @@ class Policy:
                             (not self.raid_entry_rechecked or MATCH_SECONDS - time >= -raid[2] + 4.5) and
                             (not self.raid_followup or any(
                             v is not None and v >= 5 and abs(p[0] - raid[3]) < .125
-                            for p, v in targets))):
+                            for p, v in confirmed_interior))):
                         self.raid_denied = raid[1]
-                        self.raid_push_offset = self._raid_direction(MATCH_SECONDS - time, raid[3], targets)
+                        self.raid_push_offset = self._raid_direction(
+                            MATCH_SECONDS - time, raid[3], confirmed_interior)
                         self._move_to("raid_align", (raid[3], self.pos[1]), heading, time)
                         return
             if self.frames >= 4 or self._view_timeout(time) or elapsed >= (1.7 if self.raid_entry_rechecked else 4.):
@@ -1280,6 +1321,8 @@ class Policy:
         self.previous = encoder
         fresh = obs["rgb"] is not None and obs["image_time_s"] == time
         if (fresh and abs(gyro) < .30 and abs(wrap(self.heading - yaw)) < .13):
+            if self.phase == "raid_push" and self.raid_rail:
+                self._anchor_raid_wall(obs["rgb"], rotation)
             if self.phase == "recover_flank":
                 wing = self.recover_wing
                 distance = self._end_wall_distance(obs["rgb"], rotation, axis=1, sign=wing)
