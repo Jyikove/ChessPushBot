@@ -54,6 +54,7 @@ class Policy:
         self.raid_rescan_shifted = False
         self.raid_rescan_advanced = False
         self.raid_entry_rechecked = False
+        self.raid_rail = False
         self.opening_lane_step = 0.
         self.recovery_tried = False
         self.rank_model = None
@@ -582,6 +583,7 @@ class Policy:
             return False
         _, cost, wing, side_y, scout_x, lane_x, clear = min(candidates)
         self.raid_entries.append(wing)
+        self.raid_rail = False
         self.raid_short_target = None
         self.raid_wing = wing
         self.raid_scout = np.array([scout_x, side_y])
@@ -842,6 +844,7 @@ class Policy:
     def _start_short_raid(self, time, choice):
         _, neg_seconds, lane, stage_y, wing, target = choice
         self.raid_short_target = np.array(target)
+        self.raid_rail = False
         self.raid_wing = wing
         self.raid_denied = 0
         self.raid_push_offset = 0.
@@ -997,6 +1000,33 @@ class Policy:
             reason = "raid_short_blocked" if math.isfinite(self.traffic_gap) else "raid_short_unconfirmed"
             self._raid_exit(time, reason)
 
+    def _rail_targets(self, rgb, time, rotation):
+        lo, hi = self.enemy_goal
+        # Rail-side projections can extend slightly behind the visible end wall.
+        return [(p, v) for p, v in self._valued_disks(rgb, time, rotation, own=False)
+                if hi[0] - .135 < p[0] < hi[0] + .045 and lo[1] + .006 < p[1] < hi[1] - .006]
+
+    def _rail_guard(self, rgb):
+        return any(.16 < forward < 1.23 and abs(lateral) < .48
+                   for forward, lateral in self._plates(rgb))
+
+    def _rail_choice(self, time, targets, heading):
+        if not targets:
+            return None
+        lane = self.field[0] - .115
+        wing = self.raid_wing
+        turn = np.array([lane, self.pos[1]])
+        finish = np.array([lane, self.enemy_goal[1 if wing > 0 else 0, 1] + wing * .17])
+        if min(self._recent_opponent_gap(time, turn),
+               self._recent_opponent_gap(time, finish, origin=turn)) < .52:
+            return None
+        seconds = abs(lane - self.pos[0]) / .15 + abs(finish[1] - self.pos[1]) / .16 + 2.
+        value = self._utility(time, seconds + 3., deny=self._points(targets),
+                              risk=self._entry_risk(time, wing, self.pos[1]))
+        if value > 0. and time + seconds < self.raid_deadline:
+            return value, lane, heading - wing * .11
+        return None
+
     def _end_raid(self, time, reason):
         self.exit_reason = reason
         self.failed_sweeps = 0
@@ -1129,15 +1159,30 @@ class Policy:
                 if obstructed:
                     self._give_way(rotation[:, 0], yaw, time)
                     return
-                targets = self._raid_targets(frame, obs["image_time_s"], rotation)
+                stamp = obs["image_time_s"]
+                targets = self._raid_targets(frame, stamp, rotation)
+                wall = self._rail_targets(frame, stamp, rotation)
+                if (wall or targets) and self._rail_guard(frame):
+                    self._give_way(rotation[:, 0], yaw, time)
+                    return
                 self.raid_target_seen |= bool(targets)
-                if targets:
-                    self.enemy_bank = time, targets
-                if (targets and self.frames >= 2 and not math.isfinite(self.traffic_gap) and
+                observed = [offer for offer in targets if offer[0][0] <= self.field[0] - .135] + wall
+                if observed:
+                    self.enemy_bank = time, observed
+                if (observed and self.frames >= 2 and not math.isfinite(self.traffic_gap) and
                         (self.raid_entry_rechecked or self.raid_deadline - time >= 7.)):
                     raid = self._raid_choice(time, targets)
+                    rail = self._rail_choice(time, wall, heading)
                     home = self._known_recovery_value(time)
-                    if home > max(0., raid[0] if raid else 0.) and self._plan_recovery(time, verified=True):
+                    if home > max(0., raid[0] if raid else 0., rail[0] if rail else 0.) and (
+                            self._plan_recovery(time, verified=True)):
+                        return
+                    if rail and (not raid or rail[0] >= raid[0] * .83):
+                        self.raid_rail = True
+                        self.raid_push_offset = 0.
+                        self.raid_denied = self._points(wall)
+                        _, lane, rail_heading = rail
+                        self._move_to("raid_align", (lane, self.pos[1]), rail_heading, time)
                         return
                     if (raid and raid[0] > 0. and
                             (not self.raid_entry_rechecked or MATCH_SECONDS - time >= -raid[2] + 4.5) and
@@ -1154,24 +1199,31 @@ class Policy:
                 if (self.recovery_tried and self.frames >= 4 and not self.raid_target_seen and
                         not math.isfinite(self.traffic_gap) and MATCH_SECONDS - time < 29.):
                     self._raid_exit(time, "raid_no_target")
-                elif not self._plan_raid(time, MATCH_SECONDS - time):
+                elif not self.raid_target_seen or not self._plan_raid(time, MATCH_SECONDS - time):
                     self._end_raid(time, "raid_no_target")
-        elif self.phase == "raid_align" and reached:
+        elif self.phase == "raid_align" and reached and (
+                not self.raid_rail or abs(self.pos[0] - self.target[0]) < .013):
             self.raid_carry_observation = None
             exit_y = self.enemy_goal[1 if self.raid_wing > 0 else 0, 1] + self.raid_wing * .09
+            if self.raid_rail:
+                exit_y += self.raid_wing * .08
             self.raid_pushed_lane = self.pos[0]
             end = (self.pos[0] - self.raid_push_offset, exit_y)
             delta = end - self.pos
-            push_heading = math.atan2(delta[1], delta[0])
+            push_heading = self.heading if self.raid_rail else math.atan2(delta[1], delta[0])
             self._move_to("raid_push", end, push_heading, time)
         elif self.phase == "raid_push":
+            if (self.raid_rail and obs["rgb"] is not None and obs["image_time_s"] == time and
+                    self._rail_guard(obs["rgb"])):
+                self._give_way(direction, yaw, time)
+                return
             if reached and self.raid_push_offset > 0.:
                 # Retrace the swept strip instead of crossing the receiving flank.
                 forward = np.array([math.cos(self.heading), math.sin(self.heading)])
                 self._move_to("raid_backout", self.pos - .80 * forward, self.heading, time)
                 return
             remaining = MATCH_SECONDS - time
-            can_clear = (self.raid_short_target is None and 9. <= remaining <= 22. and
+            can_clear = (not self.raid_rail and self.raid_short_target is None and 9. <= remaining <= 22. and
                          not math.isfinite(self.traffic_gap))
             diagonal = (can_clear and remaining >= 11. and self.raid_denied < 10 and
                         self._raid_carries_residual(obs, rotation, aligned))
