@@ -11,7 +11,7 @@ from shape_runtime import Detector, postprocess, prepare
 
 class PieceValues:
     def __init__(self):
-        assets = Path(__file__).resolve().parents[1] / "resources"
+        assets = Path(__file__).resolve().parents[3] / "sim" / "resources"
         model = assets / "score" / "score_cnn.onnx"
         meta = json.loads(model.with_suffix(".json").read_text(encoding="utf-8"))
         if hashlib.sha256(model.read_bytes()).hexdigest() != meta["onnx_sha256"]:

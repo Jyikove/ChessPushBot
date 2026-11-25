@@ -12,6 +12,18 @@ import numpy as np
 from core import validate_action
 
 
+def state_label(policy):
+    phase = getattr(policy, "phase", None)
+    if not isinstance(phase, str):
+        steps,stage = getattr(policy, "steps", ()),getattr(policy, "stage", None)
+        if not isinstance(steps, (list,tuple)) or not isinstance(stage, int):
+            return "UNAVAILABLE"
+        phase = getattr(steps[stage], "phase", "UNAVAILABLE") if 0<=stage<len(steps) else "DONE"
+    if phase in ("scoop","deliver") and getattr(policy,"yield_since",None) is not None:
+        phase += " / YIELD"
+    return str(phase).upper()[:50]
+
+
 def main(path):
     path = Path(path).resolve()
     sys.path.insert(0,str(path.parent))
@@ -35,7 +47,7 @@ def main(path):
         with redirect_stdout(sys.stderr):
             action = policy.act(observation)
         validate_action(action)
-        print(json.dumps(action),flush=True)
+        print(json.dumps(dict(action=action,state=state_label(policy))),flush=True)
 
 
 if __name__=="__main__":

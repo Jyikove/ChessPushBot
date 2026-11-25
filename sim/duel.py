@@ -22,6 +22,7 @@ from core import validate_action
 from duel_physics import CAMERA_STEPS, CONTROL_STEPS, HZ, HEADINGS, STARTS, DuelPhysics
 from field_spec import FIELD_DEPTH_M, FIELD_WIDTH_M, bounds
 from room_appearance import PRESETS
+from shape_runtime import Detector,postprocess,prepare
 
 
 class Worker:
@@ -102,25 +103,61 @@ def encode(image):
     return base64.b64encode(png).decode("ascii")
 
 
-def panel(images,overview,t,points):
+def panel(images,overview,t,points,env,labels,strategy_ids,telemetry):
     top=np.concatenate([cv2.resize(im,(480,360)) for im in images],axis=1)
     canvas=np.zeros((750,960,3),dtype=np.uint8)
     canvas[:360]=top
     canvas[360:720,240:720]=cv2.resize(overview,(480,360))
-    for x,label in ((12,"A camera"),(492,"B camera")):
-        cv2.putText(canvas,label,(x,26),0,.7,(31,224,255),2,cv2.LINE_AA)
-    cv2.putText(canvas,f"{t:05.1f} s    A {points['A']['points']} - {points['B']['points']} B",(300,742),
-                0,.65,(242,242,242),1,cv2.LINE_AA)
+    camera=env.m.camera("overview").id
+    rotation=env.d.cam_xmat[camera].reshape(3,3)
+    focal=180./np.tan(np.deg2rad(env.m.cam_fovy[camera])/2)
+    strategy_scores={}
+    for slot,(x,side,field_color,color) in enumerate(
+            ((12,"A","RED",(245,70,75)),(492,"B","WHITE",(232,241,248)))):
+        strategy_id=strategy_ids[slot]
+        strategy_scores[strategy_id]=points[side]["points"]
+        status=telemetry[side]
+        for detection in status["yolo"]:
+            a,b,c,d=(int(round(value*.75)) for value in detection["box"])
+            a+=480*slot
+            c+=480*slot
+            cv2.rectangle(canvas,(a,b),(c,d),(80,235,140),1)
+            cv2.putText(canvas,f'{detection["confidence"]:.2f}',(a,max(13,b-3)),0,.34,
+                        (80,235,140),1,cv2.LINE_AA)
+        cv2.rectangle(canvas,(x-4,7),(x+439,56),(22,26,31),-1)
+        cv2.putText(canvas,f"STRATEGY {strategy_id} | {field_color} | {labels[slot]}",
+                    (x,27),0,.55,color,1,cv2.LINE_AA)
+        cv2.putText(canvas,f'{status["state"]}   YAW {status["heading_deg"]:+.1f} deg   YOLO {len(status["yolo"])}',
+                    (x,48),0,.45,(220,230,236),1,cv2.LINE_AA)
+        point=(env.d.xpos[env.cars[slot]]-env.d.cam_xpos[camera])@rotation
+        depth=-point[2]
+        px=int(np.clip(480+focal*point[0]/depth,256,704))
+        py=int(np.clip(540-focal*point[1]/depth,375,705))
+        cv2.circle(canvas,(px,py),14,(22,26,31),-1,cv2.LINE_AA)
+        cv2.circle(canvas,(px,py),13,color,2,cv2.LINE_AA)
+        angle=np.deg2rad(status["heading_deg"])
+        cv2.arrowedLine(canvas,(px,py),(px+int(29*np.cos(angle)),py-int(29*np.sin(angle))),
+                        color,2,cv2.LINE_AA,tipLength=.29)
+        cv2.circle(canvas,(px,py),9,(22,26,31),-1,cv2.LINE_AA)
+        cv2.putText(canvas,strategy_id,(px-5,py+5),0,.44,color,1,cv2.LINE_AA)
+    cv2.putText(canvas,f"{t:05.1f} s    Strategy A {strategy_scores['A']} : {strategy_scores['B']} Strategy B",
+                (185,742),0,.65,(242,242,242),1,cv2.LINE_AA)
     return np.ascontiguousarray(canvas[:,:,::-1])
 
 
-def play(args, policies, name, report, videos, camera):
+def play(args, policies, strategy_ids, name, report, videos, camera):
     directory=report/name
     directory.mkdir()
     env=DuelPhysics(camera,args.seed,args.appearance)
     try:
         with ExitStack() as stack:
             trace=stack.enter_context((directory/"controls.jsonl").open("w"))
+            score_trace=stack.enter_context((directory/"score_timeline.jsonl").open("w"))
+            motion_trace=stack.enter_context((directory/"motion_trace.jsonl").open("w"))
+            def record_motion():
+                poses=[env.d.xpos[body,:2].tolist()+[env.sensor_packet(i)["yaw_from_start_rad"]]
+                       for i,body in enumerate(env.cars)]
+                motion_trace.write(json.dumps(dict(t=env.time,reset_id=env.epoch,poses=poses))+"\n")
             workers=[]
             for side, policy in zip("AB",policies,strict=True):
                 log=stack.enter_context((directory/f"strategy_{side}.log").open("w"))
@@ -138,7 +175,10 @@ def play(args, policies, name, report, videos, camera):
                 except (ValueError,RuntimeError) as error:
                     faults[side]=dict(time_s=env.time,error=str(error))
             encoder=None
+            detector=None
             if args.video:
+                detector=Detector(SIM/"resources/detector",(416,320),threads=1)
+                telemetry_trace=stack.enter_context((directory/"video_telemetry.jsonl").open("w"))
                 videos.mkdir(parents=True,exist_ok=True)
                 encoder=stack.enter_context(subprocess.Popen([
                     "ffmpeg","-loglevel","error","-f","rawvideo","-pix_fmt","bgr24","-s","960x750","-r","5",
@@ -146,34 +186,53 @@ def play(args, policies, name, report, videos, camera):
                     str(videos/f"{name}.mp4")],stdin=subprocess.PIPE))
                 stack.callback(encoder.stdin.close)
             for tick in range(120*HZ//CONTROL_STEPS):
+                record_motion()
                 fresh=env.steps%CAMERA_STEPS==0
                 images=[env.render(camera=cam) for cam in ("onboard","onboard_B")] if fresh else [None,None]
                 for slot,(side,worker) in enumerate(zip("AB",workers,strict=True)):
                     if side not in faults:
                         worker.send(env.sensor_packet(slot,encode(images[slot]) if fresh else None))
-                actions=[]
+                actions,states=[],[]
                 for side,worker in zip("AB",workers,strict=True):
                     action={"motor_pwm":[0]*4}
+                    state="FAULT"
                     if side not in faults:
                         try:
                             candidate=worker.receive()
-                            validate_action(candidate)
-                            action=candidate
-                        except (ValueError,RuntimeError) as error:
+                            validate_action(candidate["action"])
+                            state=candidate["state"]
+                            action=candidate["action"]
+                        except (ValueError,RuntimeError,KeyError,TypeError) as error:
                             faults[side]=dict(time_s=env.time,error=str(error))
                     actions.append(action)
+                    states.append(state)
                 trace.write(json.dumps(dict(t=env.time,reset_id=env.epoch,actions=actions))+"\n")
-                if encoder and fresh:
-                    encoder.stdin.write(panel(images,env.render(True),env.time,env.scoreboard()).tobytes())
+                if fresh:
+                    points=env.scoreboard()
+                    score_trace.write(json.dumps(dict(t=env.time,score={s:points[s]["points"] for s in "AB"},
+                                                      pieces={s:[p["instance_id"] for p in points[s]["pieces"]] for s in "AB"}))+"\n")
+                    if encoder:
+                        telemetry={}
+                        for slot,(side,image,state) in enumerate(zip("AB",images,states,strict=True)):
+                            mat,transform=prepare(image[:,:,::-1],(416,320))
+                            raw,_=detector.forward(mat)
+                            heading=env.sensor_packet(slot)["yaw_from_start_rad"]+HEADINGS[side]
+                            telemetry[side]=dict(state=state,heading_deg=(np.rad2deg(heading)+180)%360-180,
+                                                 yolo=postprocess(raw,transform))
+                        telemetry_trace.write(json.dumps(dict(t=env.time,**telemetry))+"\n")
+                        encoder.stdin.write(panel(images,env.render(True),env.time,points,env,
+                                                  [p.stem for p in policies],strategy_ids,telemetry).tobytes())
                 env.controls(actions)
                 if (tick+1)%300==0:
                     print(name,f"{env.time:.0f}s",flush=True)
             assert env.time==120.
+            record_motion()
             at_horn=env.scoreboard()
             settle_seconds,settled=env.settle()
             terminal=env.scoreboard()
             final_a,final_b=(terminal[s]["points"] for s in "AB")
             result=dict(seed=args.seed,appearance=args.appearance,net_seconds=env.time,
+                        policy_by_color=dict(zip(("red","white"),strategy_ids,strict=True)),
                         strategies={side:w.checkpoint for side,w in zip("AB",workers,strict=True)},
                         at_horn=at_horn,terminal=terminal,settled=settled,settle_seconds=settle_seconds,
                         status="verified" if settled else "unsettled",
@@ -212,9 +271,10 @@ def main():
     report,video=artifacts/"报告"/tag,artifacts/"视频"/tag
     report.mkdir(parents=True)
     camera=json.loads((SIM/"resources/camera/camera_profile.json").read_text())
-    runs=[play(args,policies,"leg1",report,video,camera)]
+    strategy_ids=("A","B")
+    runs=[play(args,policies,strategy_ids,"leg1",report,video,camera)]
     if args.swap:
-        runs.append(play(args,policies[::-1],"leg2",report,video,camera))
+        runs.append(play(args,policies[::-1],strategy_ids[::-1],"leg2",report,video,camera))
     totals={}
     if all(r["settled"] for r in runs):
         for i,label in enumerate(("first_policy","second_policy")):
