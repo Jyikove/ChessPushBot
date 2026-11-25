@@ -72,6 +72,8 @@ class Policy:
         self.traffic_hits = 0
         self.motion_frame = None
         self.motion_quiet = 0.
+        self.raid_edge_samples = []
+        self.raid_line_progress = -math.inf
         self.drive_command = (0., 0.)
 
     def _approach(self, time):
@@ -327,6 +329,8 @@ class Policy:
         if obs["rgb"] is None or stamp is None or obs["time_s"] - stamp > .23:
             self.motion_frame = None
             self.motion_quiet = 0.
+            self.raid_edge_samples.clear()
+            self.raid_line_progress = -math.inf
             return False
         previous = self.motion_frame
         if previous is not None and stamp == previous[0]:
@@ -355,6 +359,9 @@ class Policy:
                         motion = np.linalg.norm((tracked - corners).reshape(-1, 2)[valid], axis=1)
                         quiet = float(np.quantile(motion, .75)) < .60
         self.motion_quiet = self.motion_quiet + stamp - previous[0] if quiet else 0.
+        if self.phase == "raid_push" and MATCH_SECONDS - stamp <= 20.:
+            if self._raid_line_advancing(obs["rgb"], stamp, yaw, quiet):
+                return False
         return self.motion_quiet >= 1.2 - 1e-6
 
     def _give_way(self, direction, yaw, time):
@@ -685,17 +692,43 @@ class Policy:
         elif elapsed >= 10.:
             self._finish_recovery(time)
 
-    def _raid_goal_side(self, rgb, rotation):
+    def _raid_goal_edge(self, rgb, rotation, exit_edge=False):
         hue, saturation, value = cv2.split(cv2.cvtColor(rgb, cv2.COLOR_RGB2HSV))
         tint = ((hue <= 12) | (hue >= 169)) if self.reverse else (hue >= 103) & (hue <= 142)
         mask = tint & (saturation >= 33) & (saturation <= 130) & (value >= 85)
         floor = (saturation <= 38) & (value >= 95) & ~mask
         edge = np.zeros_like(mask)
-        edge[:-5] = mask[:-5] & ~mask[1:-4] & floor[5:]
+        if exit_edge:
+            edge[5:] = mask[5:] & ~mask[1:-4] & floor[:-5]
+        else:
+            edge[:-5] = mask[:-5] & ~mask[1:-4] & floor[5:]
         points = self._edge_points(edge, rotation)
-        points = points[(self.raid_wing * points[:, 1] > .10) &
-                        (self.raid_wing * points[:, 1] < .68)]
-        offset = self._edge_coordinate(points, 1, .12)
+        ahead = self.raid_wing * points[:, 1]
+        points = points[(ahead > .10) & (ahead < .68)]
+        return self._edge_coordinate(points, 1, .10 if exit_edge else .12)
+
+    def _raid_line_advancing(self, rgb, stamp, yaw, quiet):
+        # A carried batch can fill the flow mask. The painted line stays fixed
+        # in the world and can corroborate progress independently of wheel slip.
+        if not quiet or abs(wrap(self.heading - yaw)) >= .15:
+            self.raid_edge_samples.clear()
+            self.raid_line_progress = -math.inf
+            return False
+        c, s = math.cos(yaw), math.sin(yaw)
+        offset = self._raid_goal_edge(rgb, np.array([[c, -s], [s, c]]), exit_edge=True)
+        self.raid_edge_samples = [(t, p) for t, p in self.raid_edge_samples if stamp - t <= 1.05]
+        if offset is not None:
+            self.raid_edge_samples.append((stamp, offset * self.raid_wing))
+        if offset is not None and len(self.raid_edge_samples) >= 4:
+            times, distances = np.asarray(self.raid_edge_samples).T
+            speed = -np.diff(distances) / np.diff(times)
+            if np.count_nonzero((speed > .06) & (speed < .22)) > len(speed) / 2:
+                self.raid_line_progress = stamp
+        # Bridge one camera frame when the approaching line is occluded.
+        return stamp - self.raid_line_progress <= .25
+
+    def _raid_goal_side(self, rgb, rotation):
+        offset = self._raid_goal_edge(rgb, rotation)
         if offset is not None:
             line = self.enemy_goal[0 if self.raid_wing > 0 else 1, 1]
             if abs(line - offset - self.pos[1]) < .38:
