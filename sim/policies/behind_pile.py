@@ -13,6 +13,7 @@ RETURN_SPEED = .17
 SWEEP_REGIONS = ((-1, .56, .13), (1, .27, -.13),
                  (1, .59, -.03), (-1, .28, .04))
 TRAFFIC_PHASES = ("outside", "reposition", "approach", "detour", "enter", "deliver")
+RAID_TRAVEL = ("raid_clear", "raid_lane", "raid_transit", "raid_align", "raid_push")
 
 
 class Policy:
@@ -26,6 +27,7 @@ class Policy:
         self.goal_front = goal[1, 0] - .0025
         self.goal_sides = goal[:, 1] + [.0025, -.0025]
         self.goal_lane = goal[:, 1] + [.11, -.11]
+        self.enemy_goal = np.sort(self.field - goal, axis=0)
         self.center_x, self.center_y = self.field / 2
         camera = setup["camera"]
         self.intrinsics = np.asarray(camera["K"])
@@ -35,6 +37,9 @@ class Policy:
         self.inverse = np.linalg.pinv(WHEEL)
         self.reset_id = None
         self.exit_reason = None
+        self.failed_sweeps = 0
+        self.last_delivery = 0.
+        self.raid_entries = []
 
     def _local(self, xy):
         xy = np.asarray(xy, dtype=float)
@@ -213,9 +218,15 @@ class Policy:
         return self.traffic_gap, self.traffic_hits >= 2
 
     def _give_way(self, direction, yaw, time):
-        self.exit_reason = "delivery_blocked" if self.phase == "deliver" else "transit_blocked"
         # Reverse the approach before turning or picking a different region.
-        self._move_to("yield", self.pos - .27 * direction, yaw, time)
+        if self.phase.startswith("raid_"):
+            self.exit_reason = "raid_blocked"
+            phase = "raid_yield"
+        else:
+            self.failed_sweeps += 1
+            self.exit_reason = "delivery_blocked" if self.phase == "deliver" else "transit_blocked"
+            phase = "yield"
+        self._move_to(phase, self.pos - .27 * direction, yaw, time)
 
     def _push_has_target(self, rgb, rotation):
         # A compact dark silhouette of disk width ahead of the push face.
@@ -248,6 +259,8 @@ class Policy:
 
     def _leave_entry(self, yaw, time, retry):
         # Clear the pile laterally before turning back out to the travel lane.
+        if not retry:
+            self.failed_sweeps += 1
         self.retry_entry = retry
         self._move_to("clear", (self.pos[0], self.rollout_y - self.wing * .10), yaw, time)
 
@@ -286,6 +299,10 @@ class Policy:
         self.region = (self.region + 1) % len(SWEEP_REGIONS)
         staging_x = self.goal_x + .57
         available = MATCH_SECONDS - time
+        if (self.failed_sweeps >= 2 or
+                (self.failed_sweeps and time - self.last_delivery >= 23. and available <= 36.)):
+            if self._plan_raid(time, max_cost=available):
+                return
         near_wing = self.wing
         candidates = ((wing, self.center_x + depth, lane),
                       (wing, self.center_x - .40, lane),
@@ -323,7 +340,151 @@ class Policy:
                 else:
                     self._move_to("reposition", reposition, 0., time)
                 return
+        if self.failed_sweeps and self._plan_raid(time, max_cost=available):
+            return
         self.phase = "done"
+
+    def _plan_raid(self, time, max_cost):
+        goal = self.enemy_goal
+        scout_x = goal[:, 0].mean() - .04
+        clear_x = goal[0, 0] - .26
+        candidates = []
+        for wing, goal_y in zip((1, -1), goal[:, 1]):
+            if wing in self.raid_entries:
+                continue
+            side_y = goal_y - wing * .28
+            # Switch wings outside the mouth of the goal.
+            clear = self.pos[0] > clear_x and abs(self.pos[1] - side_y) > .20
+            lane_x = min(self.pos[0], clear_x) if clear else self.pos[0]
+            travel = abs(self.pos[0] - lane_x) + abs(self.pos[1] - side_y) + abs(scout_x - lane_x)
+            cost = travel / APPROACH_SPEED + (np.ptp(goal[:, 1]) + .37) / .16 + 3.5
+            candidates.append((cost, wing, side_y, scout_x, lane_x, clear))
+        if not candidates:
+            return False
+        cost, wing, side_y, scout_x, lane_x, clear = min(candidates)
+        if cost > max_cost:
+            return False
+        self.raid_entries.append(wing)
+        self.raid_wing = wing
+        self.raid_scout = np.array([scout_x, side_y])
+        self.raid_lane = np.array([lane_x, side_y])
+        self.raid_deadline = min(MATCH_SECONDS - .2, time + cost + 3.)
+        self.exit_reason = None
+        if clear:
+            self._move_to("raid_clear", (lane_x, self.pos[1]), wing * math.pi / 2, time)
+        else:
+            self._move_to("raid_lane", self.raid_lane, 0., time)
+        return True
+
+    def _raid_targets(self, rgb, rotation):
+        # Project the visible disks onto the opposing goal. Glyph color gives
+        # a conservative one-point floor per opponent disk, irrespective of rank.
+        gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
+        _, _, boxes, _ = cv2.connectedComponentsWithStats(cv2.inRange(gray, 0, 82))
+        hsv = cv2.cvtColor(rgb, cv2.COLOR_RGB2HSV)
+        targets = []
+        for x, y, w, h, area in boxes[1:]:
+            if w < 13 or h < 6 or area < .25 * w * h:
+                continue
+            point = self._floor_point(x + .5 * w, y + h - 1)
+            if point is None or not .20 < point[0] < 1.25:
+                continue
+            width = w * (point[0] - self.camera_origin[0]) / self.intrinsics[0, 0]
+            if not .031 < width < .15:
+                continue
+            glyph = hsv[y:y + max(3, h // 2), x + w // 5:x + 4 * w // 5]
+            hue, sat, value = cv2.split(glyph)
+            red = ((hue < 10) | (hue > 164)) & (sat > 120) & (value > 65)
+            pale = (sat < 50) & (value > 143)
+            opponent = red.mean() > .035 if self.reverse else red.mean() < .025 and pale.mean() > .07
+            position = self.pos + rotation @ (point[:2] + [.026, 0.])
+            if opponent and np.all(position > self.enemy_goal[0] + .02) and np.all(
+                    position < self.enemy_goal[1] - .02):
+                targets.append(position)
+        return targets
+
+    def _raid_goal_side(self, rgb, rotation):
+        hue, saturation, value = cv2.split(cv2.cvtColor(rgb, cv2.COLOR_RGB2HSV))
+        tint = ((hue <= 12) | (hue >= 169)) if self.reverse else (hue >= 103) & (hue <= 142)
+        mask = tint & (saturation >= 33) & (saturation <= 130) & (value >= 85)
+        floor = (saturation <= 38) & (value >= 95) & ~mask
+        edge = np.zeros_like(mask)
+        edge[:-5] = mask[:-5] & ~mask[1:-4] & floor[5:]
+        points = self._edge_points(edge, rotation)
+        points = points[(self.raid_wing * points[:, 1] > .10) &
+                        (self.raid_wing * points[:, 1] < .68)]
+        offset = self._edge_coordinate(points, 1, .12)
+        if offset is not None:
+            line = self.enemy_goal[0 if self.raid_wing > 0 else 1, 1]
+            if abs(line - offset - self.pos[1]) < .38:
+                self.pos[1] = line - offset
+
+    def _end_raid(self, time, reason):
+        self.exit_reason = reason
+        self.failed_sweeps = 0
+        # After a sweep, an unobserved short pickup at home is not worth
+        # crossing the field again unless there is time for a full collection.
+        home_budget = max(0., self.pos[0] - self.goal_front) / APPROACH_SPEED
+        home_budget += self._return_seconds(self.center_x + .18) + 5.5
+        if reason == "raid_complete" and MATCH_SECONDS - time < home_budget:
+            self.phase = "done"
+            return
+        self._plan_sweep(time)
+
+    def _raid_step(self, obs, rotation, reached, aligned, blocked, direction, yaw):
+        time = obs["time_s"]
+        elapsed = time - self.since
+        heading = self.raid_wing * math.pi / 2
+        if blocked:
+            self._give_way(direction, yaw, time)
+        elif self.phase == "raid_yield" and (reached or elapsed >= 2.):
+            if not self._plan_raid(time, MATCH_SECONDS - time):
+                self._end_raid(time, "raid_blocked")
+        elif self.phase not in ("raid_yield", "raid_exit") and (time >= self.raid_deadline or elapsed >= 13.):
+            if self.phase == "raid_push":
+                self._give_way(rotation[:, 0], yaw, time)
+                self.exit_reason = "raid_timeout"
+            else:
+                self._end_raid(time, "raid_timeout")
+        elif self.phase == "raid_clear" and reached:
+            self._move_to("raid_lane", self.raid_lane, 0., time)
+        elif self.phase == "raid_lane" and reached:
+            self._move_to("raid_transit", self.raid_scout, 0., time)
+        elif self.phase == "raid_transit" and (reached or self.pos[0] >= self.raid_scout[0] + .03):
+            self._observe("raid_scan", heading, time)
+        elif self.phase == "raid_scan":
+            frame = self._fresh_frame(obs, aligned)
+            if frame is not None:
+                self._raid_goal_side(frame, rotation)
+                _, obstructed = self._traffic_ahead(obs, np.array([1., 0.]))
+                if obstructed:
+                    self._give_way(rotation[:, 0], yaw, time)
+                    return
+                targets = self._raid_targets(frame, rotation)
+                if (targets and self.frames >= 2 and not math.isfinite(self.traffic_gap) and
+                        self.raid_deadline - time >= 7.):
+                    # Pick the lane that can sweep the most visible opponent disks.
+                    xs = np.array(targets)[:, 0]
+                    lane = max(xs, key=lambda x: (np.count_nonzero(abs(xs - x) < .125),
+                                                  -abs(x - self.pos[0])))
+                    lane = np.clip(lane, self.enemy_goal[0, 0] + .10, self.field[0] - .15)
+                    self._move_to("raid_align", (lane, self.pos[1]), heading, time)
+                    return
+            if self.frames >= 4 or elapsed >= 4.:
+                if not self._plan_raid(time, MATCH_SECONDS - time):
+                    self._end_raid(time, "raid_no_target")
+        elif self.phase == "raid_align" and reached:
+            exit_y = self.enemy_goal[1 if self.raid_wing > 0 else 0, 1] + self.raid_wing * .09
+            self._move_to("raid_push", (self.pos[0], exit_y), heading, time)
+        elif self.phase == "raid_push" and (reached or elapsed >= 8.):
+            # Clear the goal from the exit side, without pulling the disks back.
+            if reached:
+                self._move_to("raid_exit", (self.enemy_goal[0, 0] - .29, self.pos[1]), heading, time)
+            else:
+                self._give_way(rotation[:, 0], yaw, time)
+                self.exit_reason = "raid_timeout"
+        elif self.phase == "raid_exit" and (reached or elapsed >= 3.4):
+            self._end_raid(time, "raid_complete")
 
     def act(self, obs):
         encoder = np.asarray(obs["encoder_m"])
@@ -339,6 +500,8 @@ class Policy:
             self.previous = encoder
             self.goal_frame = None
             self.exit_reason = None
+            if not first_tick:
+                self.failed_sweeps += 1
             if first_tick:
                 self.sweep = 0
                 self.region = 0
@@ -351,6 +514,11 @@ class Policy:
         travel = rotation @ (self.inverse @ (encoder - self.previous))[:2]
         self.pos += travel
         self.previous = encoder
+        if (self.phase == "raid_transit" and obs["rgb"] is not None and
+                obs["image_time_s"] == time and abs(yaw) < .13 and abs(gyro) < .30):
+            distance = self._end_wall_distance(obs["rgb"], -rotation)
+            if distance is not None and abs(self.field[0] - distance - self.pos[0]) < .60:
+                self.pos[0] = self.field[0] - distance
         if (self.sweep >= 2 and self.phase in ("check", "deliver", "retreat") and
                 abs(wrap(math.pi - yaw)) < .13):
             self._correct_at_goal(obs, rotation)
@@ -385,12 +553,14 @@ class Policy:
         if self.phase == "deliver":
             traffic_direction = np.array([-1., 0.])
         distance = np.linalg.norm(traffic_direction)
-        if (self.sweep >= 2 and self.phase in TRAFFIC_PHASES and distance > .025 and
+        if (self.sweep >= 2 and self.phase in TRAFFIC_PHASES + RAID_TRAVEL and distance > .025 and
                 (self.phase != "enter" or abs(error) < .40)):
             traffic_direction /= distance
             gap, blocked = self._traffic_ahead(obs, rotation.T @ traffic_direction)
         if remaining <= 0.:
             self.phase = "done"
+        elif self.phase.startswith("raid_"):
+            self._raid_step(obs, rotation, reached, aligned, blocked, traffic_direction, yaw)
         elif blocked:
             self._give_way(traffic_direction, yaw, time)
         elif self.phase == "yield" and (reached or elapsed >= 2.):
@@ -437,11 +607,15 @@ class Policy:
         elif self.phase == "deliver":
             if goal_distance <= self.target[0] + .034:
                 self.exit_reason = "goal_edge"
+                self.failed_sweeps = 0
+                self.last_delivery = time
             elif guarded_return and goal_distance < .58 and abs(error) > .25:
                 self.exit_reason = "goal_alignment"
             elif elapsed >= 12.:
                 self.exit_reason = "delivery_timeout"
             if self.exit_reason is not None:
+                if self.exit_reason != "goal_edge":
+                    self.failed_sweeps += 1
                 self._retreat(time, yaw)
         elif self.phase == "retreat" and (reached or elapsed >= (3.6 if guarded_return else 3.) or
                 (guarded_return and goal_distance >= self.target[0] - .034)):
@@ -453,6 +627,7 @@ class Policy:
         elif self.phase == "reposition" and reached:
             self._move_to("outside", self.outside, 0., time)
         elif self.phase in ("approach", "detour", "outside", "reposition") and elapsed >= 12.:
+            self.failed_sweeps += 1
             self._next_sweep(time)
         if self.phase == "done":
             return {"motor_pwm": [0, 0, 0, 0]}
@@ -460,7 +635,7 @@ class Policy:
         error = wrap(self.heading - yaw)
         p = 2. * (self.target - self.pos)
         speed, yaw_limit = .23, 1.4
-        if self.phase in ("look", "check") or (self.phase == "enter" and abs(error) > .40):
+        if self.phase in ("look", "check", "raid_scan") or (self.phase == "enter" and abs(error) > .40):
             p[:] = 0.
         elif self.phase == "deliver":
             # Keep the push face square and bleed off cross-track error gradually.
@@ -475,9 +650,11 @@ class Policy:
             back = max(0., 2. * (self.target[0] - goal_distance))
             p = -back * np.array([math.cos(self.heading), math.sin(self.heading)])
             yaw_limit = .30
-        elif self.phase == "yield":
+        elif self.phase in ("yield", "raid_yield"):
             speed, yaw_limit = .18, .30
-        if gap < .32 and self.phase in TRAFFIC_PHASES:
+        elif self.phase in ("raid_push", "raid_exit"):
+            speed, yaw_limit = .16, .30
+        if gap < .32 and self.phase in TRAFFIC_PHASES + RAID_TRAVEL:
             speed = min(speed, .09)
         p *= min(1., speed / max(speed, np.linalg.norm(p)))
         w = np.clip(3. * error - .18 * gyro, -yaw_limit, yaw_limit)
